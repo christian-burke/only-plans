@@ -51,7 +51,7 @@ test("a path that is not a change folder is a usage error", () => {
 });
 
 const CANDIDATES = [
-  [[], ["init", "new", "list", "tasks", "criteria", "validate", "archive", "setup"]],
+  [[], ["init", "new", "list", "tasks", "criteria", "validate", "archive", "setup", "--help"]],
   [["ta"], ["tasks"]],
   [["tasks", ""], [ID]],
   [["tasks", "add"], [ID]],
@@ -67,23 +67,24 @@ const CANDIDATES = [
     ["2.1", "2.2"],
   ],
   [["criteria", "nope", ""], []],
-  [["tasks", ID, "--"], ["--json"]],
+  [["tasks", ID, "--"], ["--json", "--help"]],
   [["archive", ID, "--f"], ["--force"]],
-  [["setup", ""], ["--tabcomplete"]],
-  [["setup", "--"], ["--tabcomplete"]],
+  [["setup", ""], ["--tabcomplete", "--help"]],
+  [["setup", "--"], ["--tabcomplete", "--help"]],
   [
     ["setup", "--tabcomplete", ""],
     ["zsh", "bash", "powershell"],
   ],
   [["setup", "--tabcomplete", "p"], ["powershell"]],
-  [["setup", "--tabcomplete", "zsh", ""], []],
-  [["tasks", ID, ""], ["--json"]],
-  [["tasks", ID, "--json", ""], []],
-  [["list", ""], ["--json"]],
-  [["init", ""], []],
-  [["criteria", ID, "2.1", ""], []],
+  [["setup", "--tabcomplete", "zsh", ""], ["--help"]],
+  [["tasks", ID, ""], ["--json", "--help"]],
+  [["tasks", ID, "--json", ""], ["--help"]],
+  [["list", ""], ["--json", "--help"]],
+  [["init", ""], ["--help"]],
+  [["init", "--help", ""], []],
+  [["criteria", ID, "2.1", ""], ["--help"]],
   [["archive", ID, "--date", ""], []],
-  [["archive", ID, "--date", "2026-01-01", ""], ["--force"]],
+  [["archive", ID, "--date", "2026-01-01", ""], ["--force", "--help"]],
   [["new", ""], []],
   [["bogus", ""], []],
   [["tasks", ID, "extra"], []],
@@ -112,7 +113,8 @@ for (const [words, expected] of HINTS) {
 }
 
 test("__complete stays silent when there is simply nothing left to offer", () => {
-  for (const words of [["init", ""], ["tasks", ID, "--json", ""], ["new", ""]]) {
+  const done = [["init", "--help", ""], ["tasks", ID, "--json", "--help", ""], ["new", ""]];
+  for (const words of done) {
     const result = run(copyFixture("pass"), "__complete", ...words);
     assert.equal(result.stdout + result.stderr, "", words.join(" "));
   }
@@ -130,7 +132,8 @@ test("__complete in an empty root hints to run new", () => {
   const cwd = copyFixture("pass");
   fs.rmSync(path.join(cwd, CHANGE_PATH), { recursive: true });
   const result = run(cwd, "__complete", "validate", "");
-  assert.match(result.stderr, /no active changes — run onlyplans new/);
+  const hint = /no active changes — run onlyplans new <id> or onlyplans --help for more/;
+  assert.match(result.stderr, hint);
 });
 
 const COMPLETION_DIR = path.join(__dirname, "..", "completion");

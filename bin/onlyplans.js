@@ -803,7 +803,9 @@ function idCompletion(cwd) {
     return completion([], "onlyplans: no docs/changes/ above here — run onlyplans init");
   }
   const ids = activeIds(root);
-  const hint = ids.length ? "" : "onlyplans: no active changes — run onlyplans new <id>";
+  const hint = ids.length
+    ? ""
+    : "onlyplans: no active changes — run onlyplans new <id> or onlyplans --help for more";
   return completion(ids, hint);
 }
 
@@ -862,7 +864,8 @@ function typedSoFar(before) {
 
 /** @param {Command} command @param {Set<string>} used */
 function flagCompletion(command, used) {
-  return completion(command.flags.filter((f) => !used.has(f)).map((f) => `--${f}`));
+  const flags = [...command.flags, "help"].filter((f) => !used.has(f));
+  return completion(flags.map((f) => `--${f}`));
 }
 
 /**
@@ -871,7 +874,7 @@ function flagCompletion(command, used) {
  */
 function candidates(cwd, words) {
   const [name, ...args] = words;
-  if (words.length <= 1) return completion(Object.keys(COMMANDS));
+  if (words.length <= 1) return completion([...Object.keys(COMMANDS), "--help"]);
   const command = COMMANDS[name];
   if (!command) return completion([], `onlyplans: unknown command ${name}`);
   const before = args.slice(0, -1);
