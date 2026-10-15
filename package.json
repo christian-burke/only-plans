@@ -1,0 +1,25 @@
+{
+  "name": "only-plans",
+  "version": "0.1.0",
+  "description": "A minimal spec-driven change record: one folder, a spec, a plan, an archive.",
+  "license": "MIT",
+  "bin": {
+    "onlyplans": "bin/onlyplans.js"
+  },
+  "files": [
+    "bin/",
+    "templates/"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "spec",
+    "plan",
+    "change",
+    "cli"
+  ]
+}

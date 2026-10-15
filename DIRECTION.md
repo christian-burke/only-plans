@@ -1,6 +1,6 @@
 # OnlyPlans — Specification
 
-Repo: `only-plans`. Tool and npm package: `onlyplans`. Status: draft for the author.
+Repo and npm package: `only-plans`. Bin: `onlyplans`. Status: draft for the author.
 
 ## 1. Purpose
 
@@ -85,7 +85,7 @@ Task line grammar:
 
 ## 6. The tool
 
-One file, no dependencies, published as the npm package `onlyplans` with the bin `onlyplans`.
+One file, no dependencies, published as the npm package `only-plans` with the bin `onlyplans`.
 Node is already present wherever Claude Code or OpenSpec runs, so it adds no runtime.
 
 - Exit 0 on success.
@@ -140,7 +140,7 @@ The rule set is sections 4 and 5, plus:
 A new repo, `only-plans`:
 
 ```
-package.json        # name onlyplans, version, bin, files, engines.node >= 24, no dependencies
+package.json        # name only-plans, version, bin, files, engines.node >= 24, no dependencies
 bin/onlyplans.js
 templates/spec.md
 templates/plan.md
