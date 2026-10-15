@@ -49,7 +49,10 @@ for (const [fixture, expected] of FAILURES) {
 }
 
 const STRICT_FAILURES = [
-  ["strict-unproven-requirement", 'spec.md:25: requirement "Session" is not the proof of any task'],
+  [
+    "strict-unproven-requirement",
+    'spec.md:25: requirement "Session" is not the proof of any task',
+  ],
   ["strict-wide-line", "spec.md:23: line is 105 columns"],
 ];
 

@@ -941,14 +941,8 @@ function main(argv) {
   }
   const unknown = Object.keys(flags).find((flag) => !command.flags.includes(flag));
   if (unknown) return usageError(`${name} does not take --${unknown}`);
-  return runCli(() => command.run({ cwd: process.cwd(), positional, flags }));
-}
-
-/** Runs one command, turning a CliError into one stderr line and its exit code.
- * @param {() => number | void} action */
-function runCli(action) {
   try {
-    return action() ?? EXIT.ok;
+    return command.run({ cwd: process.cwd(), positional, flags }) ?? EXIT.ok;
   } catch (error) {
     if (!(error instanceof CliError)) throw error;
     process.stderr.write(`${error.message}\n`);
