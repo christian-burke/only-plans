@@ -30,21 +30,21 @@ one or more `#### Scenario:` blocks with GIVEN, WHEN, and THEN lines, in that or
 - [x] 1.2 <task> — proof: tests/test_x.py::test_y — kind: api
 ```
 
-A checkbox, an id, the task text, then ` — ` separated `key: value` fields. `proof` is
+A checkbox, an id, the task text, then `—` separated `key: value` fields. `proof` is
 required and names a scenario in `spec.md`, or a path from the repo root. A proof with `/`
 or `::` is a path. Other fields are kept and ignored. Ids ascend. Only `[x]` counts as done.
 
 ## Commands
 
-| Command | Does |
-|---|---|
-| `onlyplans init` | Creates `docs/changes/` and `docs/changes/archive/`. Idempotent. |
-| `onlyplans new <id>` | Creates the change from the templates. Refuses a used id. |
-| `onlyplans list [--json]` | Active changes with task counts. |
-| `onlyplans tasks <id> [--json]` | The parsed task lines. |
-| `onlyplans criteria <id> <task>` | The scenario the task's proof names, verbatim. |
-| `onlyplans validate <id> [--strict]` | `PASS`, or one finding per line as `file:line`. |
-| `onlyplans archive <id> [--date D] [--force]` | Moves the change to the archive. |
+| Command                                       | Does                                                             |
+| --------------------------------------------- | ---------------------------------------------------------------- |
+| `onlyplans init`                              | Creates `docs/changes/` and `docs/changes/archive/`. Idempotent. |
+| `onlyplans new <id>`                          | Creates the change from the templates. Refuses a used id.        |
+| `onlyplans list [--json]`                     | Active changes with task counts.                                 |
+| `onlyplans tasks <id> [--json]`               | The parsed task lines.                                           |
+| `onlyplans criteria <id> <task>`              | The scenario the task's proof names, verbatim.                   |
+| `onlyplans validate <id> [--strict]`          | `PASS`, or one finding per line as `file:line`.                  |
+| `onlyplans archive <id> [--date D] [--force]` | Moves the change to the archive.                                 |
 
 Exit 0 on success, 1 on a finding or refusal, 2 on bad usage. The tool never touches git and
 never writes outside `docs/changes/`.

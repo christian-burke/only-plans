@@ -25,4 +25,3 @@ The system SHALL show a login form.
 ### Requirement: Session
 
 The system SHALL start a session after a good password.
-

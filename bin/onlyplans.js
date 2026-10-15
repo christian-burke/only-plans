@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 // @ts-check
-'use strict';
+"use strict";
 
-const fs = require('node:fs');
-const path = require('node:path');
+const fs = require("node:fs");
+const path = require("node:path");
 
-const CHANGES_DIR = path.join('docs', 'changes');
-const ARCHIVE_DIR = 'archive';
-const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
-const SPEC = 'spec.md';
-const PLAN = 'plan.md';
+const CHANGES_DIR = path.join("docs", "changes");
+const ARCHIVE_DIR = "archive";
+const TEMPLATES_DIR = path.join(__dirname, "..", "templates");
+const SPEC = "spec.md";
+const PLAN = "plan.md";
 const MAX_COLUMNS = 100;
 const EXIT = { ok: 0, fail: 1, usage: 2 };
 
@@ -22,7 +22,7 @@ const STEP = /^- (GIVEN|WHEN|THEN)\b/;
 const TASK = /^- \[([ xX])\] (\d+(?:\.\d+)*) (.+)$/;
 const FIELD = /^([A-Za-z][\w-]*):\s*(.*)$/;
 const FIELD_SEPARATOR = /\s+—\s+/;
-const STEP_ORDER = 'GIVEN,WHEN,THEN';
+const STEP_ORDER = "GIVEN,WHEN,THEN";
 
 const USAGE = `usage: onlyplans <command> [args]
 
@@ -71,7 +71,10 @@ function isDir(file) {
 
 /** @param {string} file @returns {Line[]} */
 function readLines(file) {
-  return fs.readFileSync(file, 'utf8').split('\n').map((text, i) => ({ n: i + 1, text }));
+  return fs
+    .readFileSync(file, "utf8")
+    .split("\n")
+    .map((text, i) => ({ n: i + 1, text }));
 }
 
 /** @param {string} text */
@@ -108,17 +111,17 @@ function parseSpec(lines) {
     if (h && h.level <= 4) scenario = null;
     if (h && h.level <= 3) requirement = null;
     if (h && h.level === 2) {
-      const seen = spec.sections.includes('Requirements');
+      const seen = spec.sections.includes("Requirements");
       spec.sections.push(h.text);
-      inRequirements = h.text === 'Requirements';
+      inRequirements = h.text === "Requirements";
       if (seen) spec.stray.push(line);
       continue;
     }
     if (!inRequirements) continue;
-    if (h && h.level === 3 && h.text.startsWith('Requirement: ')) {
-      requirement = { name: h.text.slice(13).trim(), line: line.n, text: '', scenarios: [] };
+    if (h && h.level === 3 && h.text.startsWith("Requirement: ")) {
+      requirement = { name: h.text.slice(13).trim(), line: line.n, text: "", scenarios: [] };
       spec.requirements.push(requirement);
-    } else if (h && h.level === 4 && h.text.startsWith('Scenario: ') && requirement) {
+    } else if (h && h.level === 4 && h.text.startsWith("Scenario: ") && requirement) {
       scenario = { name: h.text.slice(10).trim(), line: line.n, steps: [], block: [line.text] };
       requirement.scenarios.push(scenario);
     } else if (scenario) {
@@ -147,7 +150,7 @@ function parseTask(line) {
     if (!f) return null;
     fields[f[1]] = f[2];
   }
-  return { id: m[2], text: text.trim(), done: m[1] !== ' ', fields, line: line.n, raw: line.text };
+  return { id: m[2], text: text.trim(), done: m[1] !== " ", fields, line: line.n, raw: line.text };
 }
 
 /** @param {Line[]} lines @returns {Plan} */
@@ -160,10 +163,10 @@ function parsePlan(lines) {
     const h = heading(line.text);
     if (h && h.level === 2) {
       plan.sections.push(h.text);
-      inTasks = h.text === 'Tasks';
+      inTasks = h.text === "Tasks";
       continue;
     }
-    if (!inTasks || !line.text.startsWith('- [')) continue;
+    if (!inTasks || !line.text.startsWith("- [")) continue;
     const task = parseTask(line);
     if (task) plan.tasks.push(task);
     else plan.malformed.push(line);
@@ -173,8 +176,8 @@ function parsePlan(lines) {
 
 /** @param {string} raw @returns {Proof} */
 function parseProof(raw) {
-  const isPath = raw.includes('/') || raw.includes('::');
-  return { kind: isPath ? 'path' : 'scenario', target: isPath ? raw.split('::')[0] : raw, raw };
+  const isPath = raw.includes("/") || raw.includes("::");
+  return { kind: isPath ? "path" : "scenario", target: isPath ? raw.split("::")[0] : raw, raw };
 }
 
 /** @param {Spec} spec */
@@ -184,7 +187,7 @@ function scenariosOf(spec) {
 
 /** @param {string} id */
 function idParts(id) {
-  return id.split('.').map(Number);
+  return id.split(".").map(Number);
 }
 
 /** @param {string} a @param {string} b */
@@ -214,77 +217,127 @@ function finding(file, line, what, fix) {
 /** @param {Title | null} title @param {string} id @param {string} file @param {string} suffix */
 function titleFindings(title, id, file, suffix) {
   const want = `# ${id} — ${suffix}`;
-  if (!title) return [finding(file, 1, 'missing title', `write "${want}" on the first line`)];
+  if (!title) return [finding(file, 1, "missing title", `write "${want}" on the first line`)];
   if (title.id !== id) {
-    return [finding(file, title.line, `title id "${title.id}" does not match folder "${id}"`,
-      `write "${want}"`)];
+    return [
+      finding(
+        file,
+        title.line,
+        `title id "${title.id}" does not match folder "${id}"`,
+        `write "${want}"`,
+      ),
+    ];
   }
   return [];
 }
 
 /** @param {string[]} present @param {string[]} wanted @param {string} file */
 function sectionFindings(present, wanted, file) {
-  return wanted.filter((s) => !present.includes(s))
+  return wanted
+    .filter((s) => !present.includes(s))
     .map((s) => finding(file, 1, `missing section "## ${s}"`, `add "## ${s}"`));
 }
 
 /** @param {Spec} spec @param {string} id @returns {Finding[]} */
 function specFindings(spec, id) {
-  const out = titleFindings(spec.title, id, SPEC, '<title>');
-  out.push(...sectionFindings(spec.sections, ['Why', 'Requirements'], SPEC));
+  const out = titleFindings(spec.title, id, SPEC, "<title>");
+  out.push(...sectionFindings(spec.sections, ["Why", "Requirements"], SPEC));
   /** @type {Set<string>} */
   const names = new Set();
   for (const r of spec.requirements) {
     if (!r.scenarios.length) {
-      out.push(finding(SPEC, r.line, `requirement "${r.name}" has no scenario`,
-        'add a "#### Scenario:" block under it'));
+      out.push(
+        finding(
+          SPEC,
+          r.line,
+          `requirement "${r.name}" has no scenario`,
+          'add a "#### Scenario:" block under it',
+        ),
+      );
     }
     if (!/\bSHALL\b/.test(r.text)) {
-      out.push(finding(SPEC, r.line, `requirement "${r.name}" does not say SHALL`,
-        'write "The system SHALL <behavior>."'));
+      out.push(
+        finding(
+          SPEC,
+          r.line,
+          `requirement "${r.name}" does not say SHALL`,
+          'write "The system SHALL <behavior>."',
+        ),
+      );
     }
     for (const s of r.scenarios) {
-      if (s.steps.join(',') !== STEP_ORDER) {
-        out.push(finding(SPEC, s.line, `scenario "${s.name}" lacks GIVEN, WHEN, THEN in order`,
-          'write one "- GIVEN", one "- WHEN", then one "- THEN" line'));
+      if (s.steps.join(",") !== STEP_ORDER) {
+        out.push(
+          finding(
+            SPEC,
+            s.line,
+            `scenario "${s.name}" lacks GIVEN, WHEN, THEN in order`,
+            'write one "- GIVEN", one "- WHEN", then one "- THEN" line',
+          ),
+        );
       }
       if (names.has(s.name)) {
-        out.push(finding(SPEC, s.line, `duplicate scenario name "${s.name}"`, 'rename it'));
+        out.push(finding(SPEC, s.line, `duplicate scenario name "${s.name}"`, "rename it"));
       }
       names.add(s.name);
     }
   }
   for (const line of firstOfEachBlock(spec.stray)) {
-    out.push(finding(SPEC, line.n, 'content after "## Requirements" is not a requirement block',
-      'move it above "## Requirements" or into a "### Requirement:" block'));
+    out.push(
+      finding(
+        SPEC,
+        line.n,
+        'content after "## Requirements" is not a requirement block',
+        'move it above "## Requirements" or into a "### Requirement:" block',
+      ),
+    );
   }
   return out;
 }
 
 /** @param {Plan} plan @param {string} id @returns {Finding[]} */
 function planFindings(plan, id) {
-  const out = titleFindings(plan.title, id, PLAN, 'Plan');
-  if (plan.title && plan.title.id === id && plan.title.title !== 'Plan') {
-    out.push(finding(PLAN, plan.title.line, `title is "${plan.title.title}"`,
-      `write "# ${id} — Plan"`));
+  const out = titleFindings(plan.title, id, PLAN, "Plan");
+  if (plan.title && plan.title.id === id && plan.title.title !== "Plan") {
+    out.push(
+      finding(PLAN, plan.title.line, `title is "${plan.title.title}"`, `write "# ${id} — Plan"`),
+    );
   }
-  out.push(...sectionFindings(plan.sections, ['Tasks'], PLAN));
+  out.push(...sectionFindings(plan.sections, ["Tasks"], PLAN));
   for (const line of plan.malformed) {
-    out.push(finding(PLAN, line.n, 'task line does not match the grammar',
-      'write "- [ ] <n.n> <task> — proof: <Scenario name>"'));
+    out.push(
+      finding(
+        PLAN,
+        line.n,
+        "task line does not match the grammar",
+        'write "- [ ] <n.n> <task> — proof: <Scenario name>"',
+      ),
+    );
   }
   /** @type {Set<string>} */
   const ids = new Set();
-  let previous = '';
+  let previous = "";
   for (const t of plan.tasks) {
-    if (!('proof' in t.fields)) {
-      out.push(finding(PLAN, t.line, `task ${t.id} has no proof`,
-        'append " — proof: <Scenario name>" or " — proof: <path>"'));
+    if (!("proof" in t.fields)) {
+      out.push(
+        finding(
+          PLAN,
+          t.line,
+          `task ${t.id} has no proof`,
+          'append " — proof: <Scenario name>" or " — proof: <path>"',
+        ),
+      );
     }
-    if (ids.has(t.id)) out.push(finding(PLAN, t.line, `duplicate task id ${t.id}`, 'renumber it'));
+    if (ids.has(t.id)) out.push(finding(PLAN, t.line, `duplicate task id ${t.id}`, "renumber it"));
     else if (previous && compareIds(previous, t.id) >= 0) {
-      out.push(finding(PLAN, t.line, `task id ${t.id} does not ascend from ${previous}`,
-        'renumber the tasks in order'));
+      out.push(
+        finding(
+          PLAN,
+          t.line,
+          `task id ${t.id} does not ascend from ${previous}`,
+          "renumber the tasks in order",
+        ),
+      );
     }
     ids.add(t.id);
     previous = t.id;
@@ -294,9 +347,13 @@ function planFindings(plan, id) {
 
 /** @param {Task} task @param {Proof} proof */
 function missingScenarioFinding(task, proof) {
-  const hint = /\s/.test(proof.target) ? '' : `; for a root file write ./${proof.target}`;
-  return finding(PLAN, task.line, `no scenario named "${proof.target}"${hint}`,
-    'name a scenario from spec.md');
+  const hint = /\s/.test(proof.target) ? "" : `; for a root file write ./${proof.target}`;
+  return finding(
+    PLAN,
+    task.line,
+    `no scenario named "${proof.target}"${hint}`,
+    "name a scenario from spec.md",
+  );
 }
 
 /** @param {Change} change @param {Spec} spec @param {Plan} plan @returns {Finding[]} */
@@ -305,13 +362,19 @@ function proofFindings(change, spec, plan) {
   /** @type {Finding[]} */
   const out = [];
   for (const t of plan.tasks) {
-    if (!('proof' in t.fields)) continue;
+    if (!("proof" in t.fields)) continue;
     const proof = parseProof(t.fields.proof);
-    if (proof.kind === 'scenario' && !names.has(proof.target)) {
+    if (proof.kind === "scenario" && !names.has(proof.target)) {
       out.push(missingScenarioFinding(t, proof));
-    } else if (proof.kind === 'path' && !fs.existsSync(path.join(change.root, proof.target))) {
-      out.push(finding(PLAN, t.line, `path "${proof.target}" does not exist from the repo root`,
-        'create the file or fix the path'));
+    } else if (proof.kind === "path" && !fs.existsSync(path.join(change.root, proof.target))) {
+      out.push(
+        finding(
+          PLAN,
+          t.line,
+          `path "${proof.target}" does not exist from the repo root`,
+          "create the file or fix the path",
+        ),
+      );
     }
   }
   return out;
@@ -319,13 +382,19 @@ function proofFindings(change, spec, plan) {
 
 /** @param {Spec} spec @param {Plan} plan @returns {Finding[]} */
 function strictFindings(spec, plan) {
-  const proven = new Set(plan.tasks.map((t) => parseProof(t.fields.proof ?? '').target));
+  const proven = new Set(plan.tasks.map((t) => parseProof(t.fields.proof ?? "").target));
   /** @type {Finding[]} */
   const out = [];
   for (const r of spec.requirements) {
     if (!r.scenarios.some((s) => proven.has(s.name))) {
-      out.push(finding(SPEC, r.line, `requirement "${r.name}" is not the proof of any task`,
-        'add a task whose proof names one of its scenarios'));
+      out.push(
+        finding(
+          SPEC,
+          r.line,
+          `requirement "${r.name}" is not the proof of any task`,
+          "add a task whose proof names one of its scenarios",
+        ),
+      );
     }
   }
   return [...out, ...widthFindings(SPEC, spec.lines), ...widthFindings(PLAN, plan.lines)];
@@ -333,9 +402,16 @@ function strictFindings(spec, plan) {
 
 /** @param {string} file @param {Line[]} lines */
 function widthFindings(file, lines) {
-  return lines.filter((line) => line.text.length >= MAX_COLUMNS)
-    .map((line) => finding(file, line.n, `line is ${line.text.length} columns`,
-      `keep lines under ${MAX_COLUMNS}`));
+  return lines
+    .filter((line) => line.text.length >= MAX_COLUMNS)
+    .map((line) =>
+      finding(
+        file,
+        line.n,
+        `line is ${line.text.length} columns`,
+        `keep lines under ${MAX_COLUMNS}`,
+      ),
+    );
 }
 
 /** @param {string} id */
@@ -355,7 +431,7 @@ function relFile(change, file) {
 
 /** @param {string} file */
 function missingFileFinding(file) {
-  return finding(file, 1, 'file is missing', `add ${file}`);
+  return finding(file, 1, "file is missing", `add ${file}`);
 }
 
 /** @param {Change} change @param {Finding} f */
@@ -411,8 +487,11 @@ function archiveDir(root) {
 /** @param {string} dir */
 function subdirs(dir) {
   if (!isDir(dir)) return [];
-  return fs.readdirSync(dir, { withFileTypes: true })
-    .filter((e) => e.isDirectory()).map((e) => e.name).sort();
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .sort();
 }
 
 /** @param {string} root */
@@ -458,7 +537,7 @@ function readSpec(change) {
 
 function today() {
   const d = new Date();
-  const pad = (/** @type {number} */ n) => String(n).padStart(2, '0');
+  const pad = (/** @type {number} */ n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
@@ -467,13 +546,15 @@ function init(ctx) {
   const own = locateRoot(ctx.cwd) === ctx.cwd;
   const above = own ? null : locateRoot(path.dirname(ctx.cwd));
   if (above) {
-    throw new CliError(`${changesDir(above)}: a root already exists above ${ctx.cwd}`
-      + ` — run onlyplans from ${above}`);
+    throw new CliError(
+      `${changesDir(above)}: a root already exists above ${ctx.cwd}` +
+        ` — run onlyplans from ${above}`,
+    );
   }
   for (const dir of [changesDir(ctx.cwd), archiveDir(ctx.cwd)]) {
     fs.mkdirSync(dir, { recursive: true });
-    const keep = path.join(dir, '.gitkeep');
-    if (!fs.existsSync(keep)) fs.writeFileSync(keep, '');
+    const keep = path.join(dir, ".gitkeep");
+    if (!fs.existsSync(keep)) fs.writeFileSync(keep, "");
     print(path.relative(ctx.cwd, dir) + path.sep);
   }
 }
@@ -483,8 +564,10 @@ function create(ctx) {
   const [id] = ctx.positional;
   const root = requireRoot(ctx.cwd);
   if (!KEBAB.test(id) || id === ARCHIVE_DIR) {
-    throw new CliError(`${id}: not a valid id — use lowercase letters, digits, and single`
-      + ' dashes', EXIT.usage);
+    throw new CliError(
+      `${id}: not a valid id — use lowercase letters, digits, and single` + " dashes",
+      EXIT.usage,
+    );
   }
   const dir = path.join(changesDir(root), id);
   if (isDir(dir)) throw new CliError(`${relChange(id)}: already exists — pick another id`);
@@ -493,10 +576,10 @@ function create(ctx) {
     throw new CliError(`${relArchived(archived)}: id already archived — pick another id`);
   }
   fs.mkdirSync(dir, { recursive: true });
-  const title = id.split('-').join(' ');
+  const title = id.split("-").join(" ");
   for (const file of [SPEC, PLAN]) {
-    const text = fs.readFileSync(path.join(TEMPLATES_DIR, file), 'utf8');
-    fs.writeFileSync(path.join(dir, file), text.replaceAll('<id>', id).replace('<title>', title));
+    const text = fs.readFileSync(path.join(TEMPLATES_DIR, file), "utf8");
+    fs.writeFileSync(path.join(dir, file), text.replaceAll("<id>", id).replace("<title>", title));
   }
   print(relChange(id) + path.sep);
 }
@@ -535,25 +618,28 @@ function criteria(ctx) {
   const plan = readPlan(change);
   const task = plan.tasks.find((t) => t.id === taskId);
   if (!task) {
-    throw new CliError(`${relFile(change, PLAN)}: no task ${taskId}`
-      + ` — run onlyplans tasks ${id}`);
+    throw new CliError(
+      `${relFile(change, PLAN)}: no task ${taskId}` + ` — run onlyplans tasks ${id}`,
+    );
   }
-  if (!('proof' in task.fields)) {
-    throw new CliError(`${relFile(change, PLAN)}:${task.line}: task ${taskId} has no proof`
-      + ' — append " — proof: <Scenario name>"');
+  if (!("proof" in task.fields)) {
+    throw new CliError(
+      `${relFile(change, PLAN)}:${task.line}: task ${taskId} has no proof` +
+        ' — append " — proof: <Scenario name>"',
+    );
   }
   const proof = parseProof(task.fields.proof);
-  if (proof.kind === 'path') return print(proof.raw);
+  if (proof.kind === "path") return print(proof.raw);
   const scenario = scenariosOf(readSpec(change)).find((s) => s.name === proof.target);
   if (!scenario) throw new CliError(renderFinding(change, missingScenarioFinding(task, proof)));
-  print(scenario.block.join('\n'));
+  print(scenario.block.join("\n"));
 }
 
 /** @param {Ctx} ctx */
 function validate(ctx) {
   const change = requireChange(requireRoot(ctx.cwd), ctx.positional[0]);
   const findings = validateChange(change, Boolean(ctx.flags.strict));
-  if (!findings.length) return print('PASS');
+  if (!findings.length) return print("PASS");
   findings.forEach((f) => print(renderFinding(change, f)));
   return EXIT.fail;
 }
@@ -561,13 +647,15 @@ function validate(ctx) {
 /** @param {Ctx} ctx */
 function archive(ctx) {
   const change = requireChange(requireRoot(ctx.cwd), ctx.positional[0]);
-  const date = typeof ctx.flags.date === 'string' ? ctx.flags.date : today();
+  const date = typeof ctx.flags.date === "string" ? ctx.flags.date : today();
   if (!DATE.test(date)) throw new CliError(`${date}: --date must be YYYY-MM-DD`, EXIT.usage);
   const unchecked = readPlan(change).tasks.filter((t) => !t.done);
   if (unchecked.length && !ctx.flags.force) {
-    const ids = unchecked.map((t) => t.id).join(', ');
-    throw new CliError(`${relFile(change, PLAN)}:${unchecked[0].line}: unchecked tasks ${ids}`
-      + ' — check them or pass --force');
+    const ids = unchecked.map((t) => t.id).join(", ");
+    throw new CliError(
+      `${relFile(change, PLAN)}:${unchecked[0].line}: unchecked tasks ${ids}` +
+        " — check them or pass --force",
+    );
   }
   const targetName = `${date}-${change.id}`;
   const target = path.join(archiveDir(change.root), targetName);
@@ -583,11 +671,11 @@ function archive(ctx) {
 const COMMANDS = {
   init: { arity: 0, flags: [], run: init },
   new: { arity: 1, flags: [], run: create },
-  list: { arity: 0, flags: ['json'], run: list },
-  tasks: { arity: 1, flags: ['json'], run: tasks },
+  list: { arity: 0, flags: ["json"], run: list },
+  tasks: { arity: 1, flags: ["json"], run: tasks },
   criteria: { arity: 2, flags: [], run: criteria },
-  validate: { arity: 1, flags: ['strict'], run: validate },
-  archive: { arity: 1, flags: ['date', 'force'], run: archive },
+  validate: { arity: 1, flags: ["strict"], run: validate },
+  archive: { arity: 1, flags: ["date", "force"], run: archive },
 };
 
 /** @param {string[]} argv */
@@ -598,8 +686,8 @@ function parseArgs(argv) {
   const flags = {};
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--date') flags.date = argv[++i] ?? '';
-    else if (arg.startsWith('--')) flags[arg.slice(2)] = true;
+    if (arg === "--date") flags.date = argv[++i] ?? "";
+    else if (arg.startsWith("--")) flags[arg.slice(2)] = true;
     else positional.push(arg);
   }
   return { positional, flags };
@@ -613,7 +701,10 @@ function usageError(message) {
 
 /** @param {string[]} argv */
 function main(argv) {
-  const { positional: [name, ...positional], flags } = parseArgs(argv);
+  const {
+    positional: [name, ...positional],
+    flags,
+  } = parseArgs(argv);
   if (!name || flags.help) {
     print(USAGE);
     return EXIT.ok;
