@@ -48,3 +48,9 @@ or `::` is a path. Other fields are kept and ignored. Ids ascend. Only `[x]` cou
 
 Exit 0 on success, 1 on a finding or refusal, 2 on bad usage. The tool never touches git and
 never writes outside `docs/changes/`.
+
+## Credits
+
+The spec, scenario, and archive shape follow [OpenSpec](https://github.com/Fission-AI/OpenSpec).
+OnlyPlans is the smaller cousin: one change is one folder, with no main specs and no sync.
+A repo that needs cumulative specs should graduate to OpenSpec. MIT licensed.
