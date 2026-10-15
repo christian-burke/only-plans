@@ -134,7 +134,8 @@ test("commands run from a subdirectory of the root", () => {
 
 test("usage errors exit 2 and print usage", () => {
   const cwd = copyFixture("pass");
-  for (const args of [["bogus"], ["tasks"], ["tasks", ID, "--strict"], ["validate", ID, "extra"]]) {
+  const bad = [["bogus"], ["tasks"], ["tasks", ID, "--strict"], ["validate", ID, "extra"]];
+  for (const args of bad) {
     const result = run(cwd, ...args);
     assert.equal(result.status, 2, args.join(" "));
     assert.match(result.stderr, /^usage: onlyplans/m);

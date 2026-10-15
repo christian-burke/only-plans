@@ -43,9 +43,25 @@ or `::` is a path. Other fields are kept and ignored. Ids ascend. Only `[x]` cou
 - `onlyplans criteria <id> <task>`: the scenario the task's proof names, verbatim.
 - `onlyplans validate <id> [--strict]`: `PASS`, or one finding per line as `file:line`.
 - `onlyplans archive <id> [--date D] [--force]`: moves the change to the archive.
+- `onlyplans setup --tabcomplete <zsh|bash|powershell>`: adds tab completion to your shell.
+
+`<id>` may also be given as a path, such as `docs/changes/add-login/`.
 
 Exit 0 on success, 1 on a finding or refusal, 2 on bad usage. The tool never touches git and
 never writes outside `docs/changes/`.
+
+## Tab completion
+
+```
+onlyplans setup --tabcomplete zsh        # or bash, or powershell
+```
+
+This adds a marked two-line block to your shell profile that sources the completion script
+shipped with the package. Profiles: `.zshrc`, `.bash_profile` on macOS, `.bashrc` elsewhere,
+or PowerShell's `$PROFILE`. Open a new shell, and Tab offers command names, active change
+ids, task ids, flags, and a hint when there is nothing to offer. Run it again if the install
+path changes, such as after switching Node versions. It needs the `onlyplans` command on
+your path, so install globally or `npm link`; the shell cannot complete through `npx`.
 
 ## Credits
 

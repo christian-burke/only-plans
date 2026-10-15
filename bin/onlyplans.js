@@ -2,7 +2,9 @@
 // @ts-check
 "use strict";
 
+const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const CHANGES_DIR = path.join("docs", "changes");
@@ -32,7 +34,32 @@ const USAGE = `usage: onlyplans <command> [args]
   tasks <id> [--json]                        the parsed task lines of a change
   criteria <id> <task>                       the scenario a task's proof names
   validate <id> [--strict]                   check both files, print PASS or findings
-  archive <id> [--date YYYY-MM-DD] [--force] move a finished change to the archive`;
+  archive <id> [--date YYYY-MM-DD] [--force] move a finished change to the archive
+  setup --tabcomplete <zsh|bash|powershell>  add tab completion to your shell profile
+
+<id> may also be given as a path, such as docs/changes/<id>/.`;
+
+const COMPLETE = "__complete";
+const VALUE_FLAGS = new Set(["date", "tabcomplete"]);
+const SHELL_MARKERS = ["# >>> onlyplans >>>", "# <<< onlyplans <<<"];
+const COMPLETION_DIR = path.join(__dirname, "..", "completion");
+
+/** The completion script shipped for each shell, and the profile line that loads it. */
+const SHELLS = {
+  zsh: { file: "onlyplans.zsh", load: sourceLine },
+  bash: { file: "onlyplans.bash", load: sourceLine },
+  powershell: { file: "onlyplans.ps1", load: dotSourceLine },
+};
+
+/** @param {string} file */
+function sourceLine(file) {
+  return `if [ -f '${file}' ]; then . '${file}'; fi`;
+}
+
+/** @param {string} file */
+function dotSourceLine(file) {
+  return `if (Test-Path '${file}') { . '${file}' }`;
+}
 
 /**
  * @typedef {{ n: number, text: string }} Line
@@ -62,6 +89,14 @@ class CliError extends Error {
 /** @param {string} text */
 function print(text) {
   process.stdout.write(`${text}\n`);
+}
+
+/**
+ * Resolves symlinks such as macOS's /var so paths compare by location. A missing path passes.
+ * @param {string} file
+ */
+function realPath(file) {
+  return fs.existsSync(file) ? fs.realpathSync(file) : file;
 }
 
 /** @param {string} file */
@@ -535,6 +570,25 @@ function readSpec(change) {
   return readChangeFile(change, SPEC, parseSpec);
 }
 
+/**
+ * Accepts an id or a path to the change folder, such as docs/changes/<id>/, and returns the id.
+ * @param {string} cwd @param {string} root @param {string} arg
+ */
+function idFromArg(cwd, root, arg) {
+  if (!arg.includes("/") && !arg.includes(path.sep)) return arg;
+  const rel = path.relative(changesDir(root), realPath(path.resolve(cwd, arg)));
+  if (!rel || rel.startsWith("..") || rel.includes(path.sep)) {
+    throw new CliError(`${arg}: not a change id or a path under ${CHANGES_DIR}`, EXIT.usage);
+  }
+  return rel;
+}
+
+/** @param {Ctx} ctx */
+function changeFromCtx(ctx) {
+  const root = requireRoot(ctx.cwd);
+  return requireChange(root, idFromArg(ctx.cwd, root, ctx.positional[0]));
+}
+
 function today() {
   const d = new Date();
   const pad = (/** @type {number} */ n) => String(n).padStart(2, "0");
@@ -601,7 +655,7 @@ function list(ctx) {
 
 /** @param {Ctx} ctx */
 function tasks(ctx) {
-  const change = requireChange(requireRoot(ctx.cwd), ctx.positional[0]);
+  const change = changeFromCtx(ctx);
   const plan = readPlan(change);
   if (ctx.flags.json) {
     const rows = plan.tasks.map(({ id, text, done, fields }) => ({ id, text, done, fields }));
@@ -613,13 +667,13 @@ function tasks(ctx) {
 
 /** @param {Ctx} ctx */
 function criteria(ctx) {
-  const [id, taskId] = ctx.positional;
-  const change = requireChange(requireRoot(ctx.cwd), id);
+  const taskId = ctx.positional[1];
+  const change = changeFromCtx(ctx);
   const plan = readPlan(change);
   const task = plan.tasks.find((t) => t.id === taskId);
   if (!task) {
     throw new CliError(
-      `${relFile(change, PLAN)}: no task ${taskId}` + ` — run onlyplans tasks ${id}`,
+      `${relFile(change, PLAN)}: no task ${taskId}` + ` — run onlyplans tasks ${change.id}`,
     );
   }
   if (!("proof" in task.fields)) {
@@ -637,7 +691,7 @@ function criteria(ctx) {
 
 /** @param {Ctx} ctx */
 function validate(ctx) {
-  const change = requireChange(requireRoot(ctx.cwd), ctx.positional[0]);
+  const change = changeFromCtx(ctx);
   const findings = validateChange(change, Boolean(ctx.flags.strict));
   if (!findings.length) return print("PASS");
   findings.forEach((f) => print(renderFinding(change, f)));
@@ -646,7 +700,7 @@ function validate(ctx) {
 
 /** @param {Ctx} ctx */
 function archive(ctx) {
-  const change = requireChange(requireRoot(ctx.cwd), ctx.positional[0]);
+  const change = changeFromCtx(ctx);
   const date = typeof ctx.flags.date === "string" ? ctx.flags.date : today();
   if (!DATE.test(date)) throw new CliError(`${date}: --date must be YYYY-MM-DD`, EXIT.usage);
   const unchecked = readPlan(change).tasks.filter((t) => !t.done);
@@ -667,16 +721,185 @@ function archive(ctx) {
   print(relArchived(targetName) + path.sep);
 }
 
-/** @type {Record<string, { arity: number, flags: string[], run: (ctx: Ctx) => number | void }>} */
+/** @param {string | boolean | undefined} shell @returns {keyof SHELLS} */
+function requireShell(shell) {
+  if (typeof shell === "string" && shell in SHELLS) return /** @type {keyof SHELLS} */ (shell);
+  const given = shell || "<shell>";
+  throw new CliError(`${given}: unknown shell — use zsh, bash, or powershell`, EXIT.usage);
+}
+
+/** Asks PowerShell for $PROFILE, since it is not an environment variable. */
+function powershellProfile() {
+  for (const exe of ["pwsh", "powershell"]) {
+    const result = spawnSync(exe, ["-NoProfile", "-Command", "$PROFILE"], { encoding: "utf8" });
+    if (result.status === 0 && result.stdout.trim()) return result.stdout.trim();
+  }
+  throw new CliError(
+    "pwsh: not found — run onlyplans setup --tabcomplete powershell from PowerShell, or" +
+      ` dot-source ${path.join(COMPLETION_DIR, SHELLS.powershell.file)} from $PROFILE by hand`,
+  );
+}
+
+/** @param {keyof SHELLS} shell */
+function profilePath(shell) {
+  const home = os.homedir();
+  if (shell === "zsh") return path.join(process.env.ZDOTDIR || home, ".zshrc");
+  if (shell === "bash") {
+    return path.join(home, process.platform === "darwin" ? ".bash_profile" : ".bashrc");
+  }
+  return powershellProfile();
+}
+
+/**
+ * Writes `body` between the markers in `file`, replacing an earlier block or appending a new one.
+ * Everything outside the markers is left as it was.
+ * @param {string} file @param {string[]} markers @param {string} body
+ * @returns {"added" | "updated" | "unchanged"}
+ */
+function upsertBlock(file, [begin, end], body) {
+  const block = `${begin}\n${body}\n${end}`;
+  const existing = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  const start = existing.indexOf(begin);
+  const stop = existing.indexOf(end, start);
+  if (start >= 0 && stop >= 0) {
+    const current = existing.slice(start, stop + end.length);
+    if (current === block) return "unchanged";
+    fs.writeFileSync(file, existing.slice(0, start) + block + existing.slice(stop + end.length));
+    return "updated";
+  }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const separator = !existing ? "" : existing.endsWith("\n") ? "\n" : "\n\n";
+  fs.appendFileSync(file, `${separator}${block}\n`);
+  return "added";
+}
+
+/** @param {Ctx} ctx */
+function setup(ctx) {
+  if (!("tabcomplete" in ctx.flags)) {
+    throw new CliError("setup needs --tabcomplete <zsh|bash|powershell>", EXIT.usage);
+  }
+  const shell = requireShell(ctx.flags.tabcomplete);
+  const profile = profilePath(shell);
+  const script = path.join(COMPLETION_DIR, SHELLS[shell].file);
+  const outcome = upsertBlock(profile, SHELL_MARKERS, SHELLS[shell].load(script));
+  const next = outcome === "unchanged" ? "" : " — open a new shell to use it";
+  print(`${profile}: ${outcome} onlyplans tab completion${next}`);
+}
+
+/**
+ * What Tab may offer: candidates, or a hint for the user when there are none.
+ * @typedef {{ list: string[], hint: string }} Completion
+ */
+
+/** @param {string[]} list @param {string} [hint] @returns {Completion} */
+function completion(list, hint = "") {
+  return { list, hint };
+}
+
+/** @param {string} cwd @returns {Completion} */
+function idCompletion(cwd) {
+  const root = locateRoot(cwd);
+  if (!root) {
+    return completion([], "onlyplans: no docs/changes/ above here — run onlyplans init");
+  }
+  const ids = activeIds(root);
+  const hint = ids.length
+    ? ""
+    : "onlyplans: no active changes — run onlyplans new <id> or onlyplans --help for more";
+  return completion(ids, hint);
+}
+
+/** @param {string} cwd @param {string[]} before @returns {Completion} */
+function taskIdCompletion(cwd, [arg]) {
+  try {
+    const plan = readPlan(changeFromCtx({ cwd, positional: [arg], flags: {} }));
+    const ids = plan.tasks.map((t) => t.id);
+    return completion(ids, ids.length ? "" : `onlyplans: no tasks in ${arg}`);
+  } catch (error) {
+    if (error instanceof CliError) return completion([], error.message);
+    throw error;
+  }
+}
+
+/** @type {Record<string, () => Completion>} */
+const FLAG_VALUES = {
+  tabcomplete: () => completion(Object.keys(SHELLS)),
+  date: () => completion([], "onlyplans: --date takes YYYY-MM-DD"),
+};
+
+/**
+ * @typedef {{ arity: number, flags: string[], run: (ctx: Ctx) => number | void,
+ *             positional?: Array<(cwd: string, before: string[]) => Completion> }} Command
+ */
+
+/** @type {Record<string, Command>} */
 const COMMANDS = {
   init: { arity: 0, flags: [], run: init },
   new: { arity: 1, flags: [], run: create },
   list: { arity: 0, flags: ["json"], run: list },
-  tasks: { arity: 1, flags: ["json"], run: tasks },
-  criteria: { arity: 2, flags: [], run: criteria },
-  validate: { arity: 1, flags: ["strict"], run: validate },
-  archive: { arity: 1, flags: ["date", "force"], run: archive },
+  tasks: { arity: 1, flags: ["json"], run: tasks, positional: [idCompletion] },
+  criteria: { arity: 2, flags: [], run: criteria, positional: [idCompletion, taskIdCompletion] },
+  validate: { arity: 1, flags: ["strict"], run: validate, positional: [idCompletion] },
+  archive: { arity: 1, flags: ["date", "force"], run: archive, positional: [idCompletion] },
+  setup: { arity: 0, flags: ["tabcomplete"], run: setup },
 };
+
+/** Splits the words before the cursor into positionals and the flags already used.
+ * @param {string[]} before */
+function typedSoFar(before) {
+  /** @type {string[]} */
+  const positionals = [];
+  /** @type {Set<string>} */
+  const used = new Set();
+  for (let i = 0; i < before.length; i++) {
+    const name = before[i].startsWith("--") ? before[i].slice(2) : null;
+    if (name === null) positionals.push(before[i]);
+    else {
+      used.add(name);
+      if (VALUE_FLAGS.has(name)) i++;
+    }
+  }
+  return { positionals, used };
+}
+
+/** @param {Command} command @param {Set<string>} used */
+function flagCompletion(command, used) {
+  return completion(command.flags.filter((f) => !used.has(f)).map((f) => `--${f}`));
+}
+
+/**
+ * The words typed so far. The last one is the word under the cursor, and may be empty.
+ * @param {string} cwd @param {string[]} words @returns {Completion}
+ */
+function candidates(cwd, words) {
+  const [name, ...args] = words;
+  if (words.length <= 1) return completion([...Object.keys(COMMANDS), "--help"]);
+  const command = COMMANDS[name];
+  if (!command) return completion([], `onlyplans: unknown command ${name}`);
+  const before = args.slice(0, -1);
+  const current = args[args.length - 1];
+  const previous = before[before.length - 1];
+  const valueOf = previous?.startsWith("--") ? FLAG_VALUES[previous.slice(2)] : undefined;
+  if (valueOf) return valueOf();
+  const { positionals, used } = typedSoFar(before);
+  if (current.startsWith("-")) return flagCompletion(command, used);
+  const next = command.positional?.[positionals.length];
+  if (next) return next(cwd, positionals);
+  if (positionals.length < command.arity) return completion([]);
+  return flagCompletion(command, used);
+}
+
+/** @param {string} cwd @param {string[]} argv */
+function complete(cwd, argv) {
+  const words = argv.length ? argv : [""];
+  const current = words[words.length - 1];
+  const { list, hint } = candidates(cwd, words);
+  const matches = list.filter((c) => c.startsWith(current));
+  matches.forEach(print);
+  const noMatch = list.length ? `onlyplans: nothing matches "${current}"` : hint;
+  if (!matches.length && noMatch) process.stderr.write(`${noMatch}\n`);
+  return EXIT.ok;
+}
 
 /** @param {string[]} argv */
 function parseArgs(argv) {
@@ -686,8 +909,9 @@ function parseArgs(argv) {
   const flags = {};
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--date") flags.date = argv[++i] ?? "";
-    else if (arg.startsWith("--")) flags[arg.slice(2)] = true;
+    const name = arg.startsWith("--") ? arg.slice(2) : null;
+    if (name && VALUE_FLAGS.has(name)) flags[name] = argv[++i] ?? "";
+    else if (name) flags[name] = true;
     else positional.push(arg);
   }
   return { positional, flags };
@@ -701,6 +925,7 @@ function usageError(message) {
 
 /** @param {string[]} argv */
 function main(argv) {
+  if (argv[0] === COMPLETE) return complete(process.cwd(), argv.slice(1));
   const {
     positional: [name, ...positional],
     flags,

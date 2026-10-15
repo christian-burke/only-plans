@@ -24,6 +24,7 @@ docs/changes/archive/<YYYY-MM-DD>-<id>/     # the folder, moved whole
 ```
 
 - `<id>` is kebab-case and unique among active and archived changes.
+- Commands that take `<id>` also accept a path to the folder, such as `docs/changes/<id>/`.
 - One root keeps one glob for tools. The archive path is one constant in the tool.
 
 ## 4. spec.md
@@ -90,7 +91,8 @@ Node is already present wherever Claude Code or OpenSpec runs, so it adds no run
 
 - Exit 0 on success.
 - Every error is one line: what failed, `file:line` where, and what to do.
-- The tool never commits, branches, or writes outside `docs/changes/`. Callers own git.
+- The tool never commits or branches. Callers own git. It writes only under `docs/changes/`,
+  except `setup`, which writes a marked block to the shell profile.
 
 | Command                                                | Does                                                                                                                                                                               |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -101,6 +103,7 @@ Node is already present wherever Claude Code or OpenSpec runs, so it adds no run
 | `onlyplans criteria <id> <task>`                       | Prints the scenario blocks the task's proof names, verbatim. Errors on a missing scenario. A path proof prints the path.                                                           |
 | `onlyplans validate <id> [--strict]`                   | Runs the rules for both files. Prints `PASS`, or one finding per line. `--strict` adds: every requirement is named as proof by at least one task, and lines are under 100 columns. |
 | `onlyplans archive <id> [--date YYYY-MM-DD] [--force]` | Refuses while a task is unchecked and names the ids, unless `--force`. Moves the folder to `archive/<date>-<id>/`. Refuses if the target exists. Does not touch git.               |
+| `onlyplans setup --tabcomplete <shell>` | Upserts a marked block into the profile of `zsh`, `bash`, or `powershell` that sources the completion script shipped in `completion/`. The script asks the tool for candidates and hints. |
 
 ## 7. Templates
 
