@@ -338,9 +338,24 @@ function widthFindings(file, lines) {
       `keep lines under ${MAX_COLUMNS}`));
 }
 
+/** @param {string} id */
+function relChange(id) {
+  return path.join(CHANGES_DIR, id);
+}
+
+/** @param {string} name */
+function relArchived(name) {
+  return path.join(CHANGES_DIR, ARCHIVE_DIR, name);
+}
+
 /** @param {Change} change @param {string} file */
 function relFile(change, file) {
-  return path.join(CHANGES_DIR, change.id, file);
+  return path.join(relChange(change.id), file);
+}
+
+/** @param {string} file */
+function missingFileFinding(file) {
+  return finding(file, 1, 'file is missing', `add ${file}`);
 }
 
 /** @param {Change} change @param {Finding} f */
@@ -351,9 +366,7 @@ function renderFinding(change, f) {
 /** @param {Change} change @param {boolean} strict @returns {Finding[]} */
 function validateChange(change, strict) {
   const missing = [SPEC, PLAN].filter((file) => !fs.existsSync(path.join(change.dir, file)));
-  if (missing.length) {
-    return missing.map((file) => finding(file, 1, 'file is missing', `add ${file}`));
-  }
+  if (missing.length) return missing.map(missingFileFinding);
   const spec = parseSpec(readLines(path.join(change.dir, SPEC)));
   const plan = parsePlan(readLines(path.join(change.dir, PLAN)));
   const out = [
@@ -379,7 +392,9 @@ function locateRoot(cwd) {
 /** @param {string} cwd */
 function requireRoot(cwd) {
   const root = locateRoot(cwd);
-  if (!root) throw new CliError(`${CHANGES_DIR}: not found in ${cwd} or above — run onlyplans init`);
+  if (!root) {
+    throw new CliError(`${CHANGES_DIR}: not found in ${cwd} or above — run onlyplans init`);
+  }
   return root;
 }
 
@@ -414,27 +429,31 @@ function archivedEntry(root, id) {
 function requireChange(root, id) {
   const dir = path.join(changesDir(root), id);
   if (id === ARCHIVE_DIR || !isDir(dir)) {
-    throw new CliError(`${path.join(CHANGES_DIR, id)}: no such change — run onlyplans list`);
+    throw new CliError(`${relChange(id)}: no such change — run onlyplans list`);
   }
   return { root, id, dir };
 }
 
+/**
+ * @template T
+ * @param {Change} change @param {string} file @param {(lines: Line[]) => T} parse
+ */
+function readChangeFile(change, file, parse) {
+  const full = path.join(change.dir, file);
+  if (!fs.existsSync(full)) {
+    throw new CliError(renderFinding(change, missingFileFinding(file)));
+  }
+  return parse(readLines(full));
+}
+
 /** @param {Change} change */
 function readPlan(change) {
-  const file = path.join(change.dir, PLAN);
-  if (!fs.existsSync(file)) {
-    throw new CliError(`${relFile(change, PLAN)}: file is missing — add ${PLAN}`);
-  }
-  return parsePlan(readLines(file));
+  return readChangeFile(change, PLAN, parsePlan);
 }
 
 /** @param {Change} change */
 function readSpec(change) {
-  const file = path.join(change.dir, SPEC);
-  if (!fs.existsSync(file)) {
-    throw new CliError(`${relFile(change, SPEC)}: file is missing — add ${SPEC}`);
-  }
-  return parseSpec(readLines(file));
+  return readChangeFile(change, SPEC, parseSpec);
 }
 
 function today() {
@@ -464,15 +483,14 @@ function create(ctx) {
   const [id] = ctx.positional;
   const root = requireRoot(ctx.cwd);
   if (!KEBAB.test(id) || id === ARCHIVE_DIR) {
-    throw new CliError(`${id}: not a valid id — use lowercase letters, digits, and single dashes`,
-      EXIT.usage);
+    throw new CliError(`${id}: not a valid id — use lowercase letters, digits, and single`
+      + ' dashes', EXIT.usage);
   }
   const dir = path.join(changesDir(root), id);
-  if (isDir(dir)) throw new CliError(`${path.join(CHANGES_DIR, id)}: already exists — pick another id`);
+  if (isDir(dir)) throw new CliError(`${relChange(id)}: already exists — pick another id`);
   const archived = archivedEntry(root, id);
   if (archived) {
-    throw new CliError(`${path.join(CHANGES_DIR, ARCHIVE_DIR, archived)}: id already archived`
-      + ' — pick another id');
+    throw new CliError(`${relArchived(archived)}: id already archived — pick another id`);
   }
   fs.mkdirSync(dir, { recursive: true });
   const title = id.split('-').join(' ');
@@ -480,7 +498,7 @@ function create(ctx) {
     const text = fs.readFileSync(path.join(TEMPLATES_DIR, file), 'utf8');
     fs.writeFileSync(path.join(dir, file), text.replaceAll('<id>', id).replace('<title>', title));
   }
-  print(path.join(CHANGES_DIR, id) + path.sep);
+  print(relChange(id) + path.sep);
 }
 
 /** @param {string} root @param {string} id */
@@ -517,7 +535,8 @@ function criteria(ctx) {
   const plan = readPlan(change);
   const task = plan.tasks.find((t) => t.id === taskId);
   if (!task) {
-    throw new CliError(`${relFile(change, PLAN)}: no task ${taskId} — run onlyplans tasks ${id}`);
+    throw new CliError(`${relFile(change, PLAN)}: no task ${taskId}`
+      + ` — run onlyplans tasks ${id}`);
   }
   if (!('proof' in task.fields)) {
     throw new CliError(`${relFile(change, PLAN)}:${task.line}: task ${taskId} has no proof`
@@ -553,12 +572,11 @@ function archive(ctx) {
   const targetName = `${date}-${change.id}`;
   const target = path.join(archiveDir(change.root), targetName);
   if (fs.existsSync(target)) {
-    throw new CliError(`${path.join(CHANGES_DIR, ARCHIVE_DIR, targetName)}: already exists`
-      + ' — pass a different --date');
+    throw new CliError(`${relArchived(targetName)}: already exists — pass a different --date`);
   }
   fs.mkdirSync(archiveDir(change.root), { recursive: true });
   fs.renameSync(change.dir, target);
-  print(path.join(CHANGES_DIR, ARCHIVE_DIR, targetName) + path.sep);
+  print(relArchived(targetName) + path.sep);
 }
 
 /** @type {Record<string, { arity: number, flags: string[], run: (ctx: Ctx) => number | void }>} */
