@@ -864,8 +864,7 @@ function typedSoFar(before) {
 
 /** @param {Command} command @param {Set<string>} used */
 function flagCompletion(command, used) {
-  const flags = [...command.flags, "help"].filter((f) => !used.has(f));
-  return completion(flags.map((f) => `--${f}`));
+  return completion(command.flags.filter((f) => !used.has(f)).map((f) => `--${f}`));
 }
 
 /**

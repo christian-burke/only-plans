@@ -67,24 +67,23 @@ const CANDIDATES = [
     ["2.1", "2.2"],
   ],
   [["criteria", "nope", ""], []],
-  [["tasks", ID, "--"], ["--json", "--help"]],
+  [["tasks", ID, "--"], ["--json"]],
   [["archive", ID, "--f"], ["--force"]],
-  [["setup", ""], ["--tabcomplete", "--help"]],
-  [["setup", "--"], ["--tabcomplete", "--help"]],
+  [["setup", ""], ["--tabcomplete"]],
+  [["setup", "--"], ["--tabcomplete"]],
   [
     ["setup", "--tabcomplete", ""],
     ["zsh", "bash", "powershell"],
   ],
   [["setup", "--tabcomplete", "p"], ["powershell"]],
-  [["setup", "--tabcomplete", "zsh", ""], ["--help"]],
-  [["tasks", ID, ""], ["--json", "--help"]],
-  [["tasks", ID, "--json", ""], ["--help"]],
-  [["list", ""], ["--json", "--help"]],
-  [["init", ""], ["--help"]],
-  [["init", "--help", ""], []],
-  [["criteria", ID, "2.1", ""], ["--help"]],
+  [["setup", "--tabcomplete", "zsh", ""], []],
+  [["tasks", ID, ""], ["--json"]],
+  [["tasks", ID, "--json", ""], []],
+  [["list", ""], ["--json"]],
+  [["init", ""], []],
+  [["criteria", ID, "2.1", ""], []],
   [["archive", ID, "--date", ""], []],
-  [["archive", ID, "--date", "2026-01-01", ""], ["--force", "--help"]],
+  [["archive", ID, "--date", "2026-01-01", ""], ["--force"]],
   [["new", ""], []],
   [["bogus", ""], []],
   [["tasks", ID, "extra"], []],
@@ -113,7 +112,7 @@ for (const [words, expected] of HINTS) {
 }
 
 test("__complete stays silent when there is simply nothing left to offer", () => {
-  const done = [["init", "--help", ""], ["tasks", ID, "--json", "--help", ""], ["new", ""]];
+  const done = [["init", ""], ["tasks", ID, "--json", ""], ["new", ""]];
   for (const words of done) {
     const result = run(copyFixture("pass"), "__complete", ...words);
     assert.equal(result.stdout + result.stderr, "", words.join(" "));
