@@ -43,9 +43,24 @@ or `::` is a path. Other fields are kept and ignored. Ids ascend. Only `[x]` cou
 - `onlyplans criteria <id> <task>`: the scenario the task's proof names, verbatim.
 - `onlyplans validate <id> [--strict]`: `PASS`, or one finding per line as `file:line`.
 - `onlyplans archive <id> [--date D] [--force]`: moves the change to the archive.
+- `onlyplans completion <zsh|bash|powershell>`: prints a tab-completion script.
+
+`<id>` may also be given as a path, such as `docs/changes/add-login/`.
 
 Exit 0 on success, 1 on a finding or refusal, 2 on bad usage. The tool never touches git and
 never writes outside `docs/changes/`.
+
+## Tab completion
+
+Completion offers command names, active change ids, task ids, and flags. It needs the
+`onlyplans` command on your path, so install globally or `npm link`; the shell cannot complete
+through `npx`. Add one line to your shell profile:
+
+```
+eval "$(onlyplans completion zsh)"          # .zshrc, after compinit
+eval "$(onlyplans completion bash)"         # .bashrc
+onlyplans completion powershell | Out-String | Invoke-Expression   # $PROFILE
+```
 
 ## Credits
 

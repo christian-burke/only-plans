@@ -32,7 +32,45 @@ const USAGE = `usage: onlyplans <command> [args]
   tasks <id> [--json]                        the parsed task lines of a change
   criteria <id> <task>                       the scenario a task's proof names
   validate <id> [--strict]                   check both files, print PASS or findings
-  archive <id> [--date YYYY-MM-DD] [--force] move a finished change to the archive`;
+  archive <id> [--date YYYY-MM-DD] [--force] move a finished change to the archive
+  completion <zsh|bash|powershell>           print a tab-completion script for the shell
+
+<id> may also be given as a path, such as docs/changes/<id>/.`;
+
+const COMPLETE = "__complete";
+
+/** Each script hands the words typed so far to `onlyplans __complete` and lists what it prints. */
+const SHELL_SCRIPTS = {
+  zsh: [
+    "#compdef onlyplans",
+    "_onlyplans() {",
+    "  local -a candidates",
+    '  candidates=(${(f)"$(onlyplans ' + COMPLETE + ' "${words[@]:1}" 2>/dev/null)"})',
+    '  compadd -- "${candidates[@]}"',
+    "}",
+    "compdef _onlyplans onlyplans",
+  ],
+  bash: [
+    "_onlyplans() {",
+    "  local -a words",
+    '  words=("${COMP_WORDS[@]:1}")',
+    "  local IFS=$'\\n'",
+    '  COMPREPLY=($(onlyplans ' + COMPLETE + ' "${words[@]}" 2>/dev/null))',
+    "}",
+    "complete -F _onlyplans onlyplans",
+  ],
+  powershell: [
+    "Register-ArgumentCompleter -Native -CommandName onlyplans -ScriptBlock {",
+    "  param($wordToComplete, $commandAst, $cursorPosition)",
+    "  $words = @($commandAst.CommandElements | Select-Object -Skip 1 |" +
+      " ForEach-Object { $_.ToString() })",
+    "  if ($wordToComplete -eq '') { $words += '' }",
+    "  onlyplans " + COMPLETE + " @words 2>$null | ForEach-Object {",
+    "    [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)",
+    "  }",
+    "}",
+  ],
+};
 
 /**
  * @typedef {{ n: number, text: string }} Line
@@ -62,6 +100,14 @@ class CliError extends Error {
 /** @param {string} text */
 function print(text) {
   process.stdout.write(`${text}\n`);
+}
+
+/**
+ * Resolves symlinks such as macOS's /var so paths compare by location. A missing path passes.
+ * @param {string} file
+ */
+function realPath(file) {
+  return fs.existsSync(file) ? fs.realpathSync(file) : file;
 }
 
 /** @param {string} file */
@@ -535,6 +581,25 @@ function readSpec(change) {
   return readChangeFile(change, SPEC, parseSpec);
 }
 
+/**
+ * Accepts an id or a path to the change folder, such as docs/changes/<id>/, and returns the id.
+ * @param {string} cwd @param {string} root @param {string} arg
+ */
+function idFromArg(cwd, root, arg) {
+  if (!arg.includes("/") && !arg.includes(path.sep)) return arg;
+  const rel = path.relative(changesDir(root), realPath(path.resolve(cwd, arg)));
+  if (!rel || rel.startsWith("..") || rel.includes(path.sep)) {
+    throw new CliError(`${arg}: not a change id or a path under ${CHANGES_DIR}`, EXIT.usage);
+  }
+  return rel;
+}
+
+/** @param {Ctx} ctx */
+function changeFromCtx(ctx) {
+  const root = requireRoot(ctx.cwd);
+  return requireChange(root, idFromArg(ctx.cwd, root, ctx.positional[0]));
+}
+
 function today() {
   const d = new Date();
   const pad = (/** @type {number} */ n) => String(n).padStart(2, "0");
@@ -601,7 +666,7 @@ function list(ctx) {
 
 /** @param {Ctx} ctx */
 function tasks(ctx) {
-  const change = requireChange(requireRoot(ctx.cwd), ctx.positional[0]);
+  const change = changeFromCtx(ctx);
   const plan = readPlan(change);
   if (ctx.flags.json) {
     const rows = plan.tasks.map(({ id, text, done, fields }) => ({ id, text, done, fields }));
@@ -613,13 +678,13 @@ function tasks(ctx) {
 
 /** @param {Ctx} ctx */
 function criteria(ctx) {
-  const [id, taskId] = ctx.positional;
-  const change = requireChange(requireRoot(ctx.cwd), id);
+  const taskId = ctx.positional[1];
+  const change = changeFromCtx(ctx);
   const plan = readPlan(change);
   const task = plan.tasks.find((t) => t.id === taskId);
   if (!task) {
     throw new CliError(
-      `${relFile(change, PLAN)}: no task ${taskId}` + ` — run onlyplans tasks ${id}`,
+      `${relFile(change, PLAN)}: no task ${taskId}` + ` — run onlyplans tasks ${change.id}`,
     );
   }
   if (!("proof" in task.fields)) {
@@ -637,7 +702,7 @@ function criteria(ctx) {
 
 /** @param {Ctx} ctx */
 function validate(ctx) {
-  const change = requireChange(requireRoot(ctx.cwd), ctx.positional[0]);
+  const change = changeFromCtx(ctx);
   const findings = validateChange(change, Boolean(ctx.flags.strict));
   if (!findings.length) return print("PASS");
   findings.forEach((f) => print(renderFinding(change, f)));
@@ -646,7 +711,7 @@ function validate(ctx) {
 
 /** @param {Ctx} ctx */
 function archive(ctx) {
-  const change = requireChange(requireRoot(ctx.cwd), ctx.positional[0]);
+  const change = changeFromCtx(ctx);
   const date = typeof ctx.flags.date === "string" ? ctx.flags.date : today();
   if (!DATE.test(date)) throw new CliError(`${date}: --date must be YYYY-MM-DD`, EXIT.usage);
   const unchecked = readPlan(change).tasks.filter((t) => !t.done);
@@ -667,16 +732,86 @@ function archive(ctx) {
   print(relArchived(targetName) + path.sep);
 }
 
-/** @type {Record<string, { arity: number, flags: string[], run: (ctx: Ctx) => number | void }>} */
+/** @param {Ctx} ctx */
+function completion(ctx) {
+  const [shell] = ctx.positional;
+  const script = SHELL_SCRIPTS[/** @type {keyof SHELL_SCRIPTS} */ (shell)];
+  if (!script) {
+    throw new CliError(`${shell}: unknown shell — use zsh, bash, or powershell`, EXIT.usage);
+  }
+  print(script.join("\n"));
+}
+
+/** @param {string} cwd */
+function idCandidates(cwd) {
+  const root = locateRoot(cwd);
+  return root ? activeIds(root) : [];
+}
+
+/** @param {string} cwd @param {string} arg */
+function taskIdCandidates(cwd, arg) {
+  try {
+    return readPlan(changeFromCtx({ cwd, positional: [arg], flags: {} })).tasks.map((t) => t.id);
+  } catch (error) {
+    if (error instanceof CliError) return [];
+    throw error;
+  }
+}
+
+/** @param {string} cwd @param {string[]} args */
+function completeId(cwd, args) {
+  return args.length === 1 ? idCandidates(cwd) : [];
+}
+
+/** @param {string} cwd @param {string[]} args */
+function completeCriteria(cwd, args) {
+  return args.length === 2 ? taskIdCandidates(cwd, args[0]) : completeId(cwd, args);
+}
+
+/** @param {string} cwd @param {string[]} args */
+function completeShell(cwd, args) {
+  return args.length === 1 ? Object.keys(SHELL_SCRIPTS) : [];
+}
+
+/**
+ * @typedef {{ arity: number, flags: string[], run: (ctx: Ctx) => number | void,
+ *             complete?: (cwd: string, args: string[]) => string[] }} Command
+ */
+
+/** @type {Record<string, Command>} */
 const COMMANDS = {
   init: { arity: 0, flags: [], run: init },
   new: { arity: 1, flags: [], run: create },
   list: { arity: 0, flags: ["json"], run: list },
-  tasks: { arity: 1, flags: ["json"], run: tasks },
-  criteria: { arity: 2, flags: [], run: criteria },
-  validate: { arity: 1, flags: ["strict"], run: validate },
-  archive: { arity: 1, flags: ["date", "force"], run: archive },
+  tasks: { arity: 1, flags: ["json"], run: tasks, complete: completeId },
+  criteria: { arity: 2, flags: [], run: criteria, complete: completeCriteria },
+  validate: { arity: 1, flags: ["strict"], run: validate, complete: completeId },
+  archive: { arity: 1, flags: ["date", "force"], run: archive, complete: completeId },
+  completion: { arity: 1, flags: [], run: completion, complete: completeShell },
 };
+
+/**
+ * The words typed so far. The last one is the word under the cursor, and may be empty.
+ * @param {string} cwd @param {string[]} words
+ */
+function candidates(cwd, words) {
+  const [name, ...args] = words;
+  if (words.length <= 1) return Object.keys(COMMANDS);
+  const command = COMMANDS[name];
+  if (!command) return [];
+  if (args[args.length - 1].startsWith("-")) return command.flags.map((flag) => `--${flag}`);
+  return command.complete ? command.complete(cwd, args) : [];
+}
+
+/** @param {string} cwd @param {string[]} argv */
+function complete(cwd, argv) {
+  const words = argv.length ? argv : [""];
+  const current = words[words.length - 1];
+  candidates(cwd, words)
+    .filter((c) => c.startsWith(current))
+    .forEach(print);
+  return EXIT.ok;
+}
 
 /** @param {string[]} argv */
 function parseArgs(argv) {
@@ -701,6 +836,7 @@ function usageError(message) {
 
 /** @param {string[]} argv */
 function main(argv) {
+  if (argv[0] === COMPLETE) return complete(process.cwd(), argv.slice(1));
   const {
     positional: [name, ...positional],
     flags,
