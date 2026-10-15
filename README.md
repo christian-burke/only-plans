@@ -36,15 +36,13 @@ or `::` is a path. Other fields are kept and ignored. Ids ascend. Only `[x]` cou
 
 ## Commands
 
-| Command                                       | Does                                                             |
-| --------------------------------------------- | ---------------------------------------------------------------- |
-| `onlyplans init`                              | Creates `docs/changes/` and `docs/changes/archive/`. Idempotent. |
-| `onlyplans new <id>`                          | Creates the change from the templates. Refuses a used id.        |
-| `onlyplans list [--json]`                     | Active changes with task counts.                                 |
-| `onlyplans tasks <id> [--json]`               | The parsed task lines.                                           |
-| `onlyplans criteria <id> <task>`              | The scenario the task's proof names, verbatim.                   |
-| `onlyplans validate <id> [--strict]`          | `PASS`, or one finding per line as `file:line`.                  |
-| `onlyplans archive <id> [--date D] [--force]` | Moves the change to the archive.                                 |
+- `onlyplans init`: creates `docs/changes/` and `docs/changes/archive/`. Idempotent.
+- `onlyplans new <id>`: creates the change from the templates. Refuses a used id.
+- `onlyplans list [--json]`: active changes with task counts.
+- `onlyplans tasks <id> [--json]`: the parsed task lines.
+- `onlyplans criteria <id> <task>`: the scenario the task's proof names, verbatim.
+- `onlyplans validate <id> [--strict]`: `PASS`, or one finding per line as `file:line`.
+- `onlyplans archive <id> [--date D] [--force]`: moves the change to the archive.
 
 Exit 0 on success, 1 on a finding or refusal, 2 on bad usage. The tool never touches git and
 never writes outside `docs/changes/`.
