@@ -191,3 +191,33 @@ test("an unknown change is one line on stderr with exit 1", () => {
   assert.equal(result.status, 1);
   assert.equal(result.stderr, "docs/changes/nope: no such change — run onlyplans list\n");
 });
+
+test("any command outside a root fails in one line that points at init", () => {
+  const cwd = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "onlyplans-noroot-"));
+  const result = run(cwd, "list");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /^docs\/changes: not found in \S+ or above — run onlyplans init\n$/);
+});
+
+test("tasks on a change without plan.md fails with the missing-file finding", () => {
+  const result = run(copyFixture("missing-plan"), "tasks", ID);
+  assert.equal(result.status, 1);
+  const expected = "docs/changes/add-login/plan.md:1: file is missing — add plan.md\n";
+  assert.equal(result.stderr, expected);
+});
+
+test("archive without --date uses today", () => {
+  const cwd = copyFixture("unchecked-none");
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  assert.equal(run(cwd, "archive", ID).stdout, `docs/changes/archive/${today}-${ID}/\n`);
+  assert.ok(fs.existsSync(path.join(cwd, "docs/changes/archive", `${today}-${ID}`, "spec.md")));
+});
+
+test("criteria on a task without a proof fails at the task line", () => {
+  const result = run(copyFixture("task-no-proof"), "criteria", ID, "1.2");
+  assert.equal(result.status, 1);
+  const expected = /^docs\/changes\/add-login\/plan\.md:6: task 1\.2 has no proof — /;
+  assert.match(result.stderr, expected);
+});
