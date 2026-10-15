@@ -53,7 +53,7 @@ const SHELL_SCRIPTS = {
     "_onlyplans() {",
     "  local -a candidates",
     '  candidates=(${(f)"$(onlyplans ' + COMPLETE + ' "${words[@]:1}" 2>/dev/null)"})',
-    "  (( ${#candidates} )) && compadd -- \"${candidates[@]}\" ||" +
+    '  (( ${#candidates} )) && compadd -- "${candidates[@]}" ||' +
       " _message -r 'onlyplans: nothing to complete here (no docs/changes/ above, or no match)'",
     "}",
     "(( $+functions[compdef] )) || { autoload -Uz compinit && compinit; }",
