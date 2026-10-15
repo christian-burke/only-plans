@@ -32,7 +32,8 @@ Fixed. DIRECTION.md does not state these; the steps below assume them.
 Deliverable: `npm test` runs and passes zero tests. `npx .` prints usage.
 
 - `package.json`: name `only-plans`, version `0.1.0`, `bin`, `files`, `engines.node >= 24`,
-  `license`, no `dependencies`, `scripts.test = node --test`.
+  `license`, no `dependencies`, `scripts.test = node --test test/*.test.js` so the
+  fixture repos' own test files are not collected.
 - `LICENSE` (MIT), `CHANGELOG.md` (Unreleased), `.gitignore`, `.editorconfig`.
 - `bin/onlyplans.js` with a shebang, `// @ts-check`, usage text, and exit codes. No
   commands yet.
@@ -87,11 +88,13 @@ Rules, each a small function that returns findings:
 13. A path proof resolves from the repo root.
 14. Task ids are unique.
 15. Task ids ascend by numeric parts.
+16. Required sections exist: `## Why` and `## Requirements` in the spec, `## Tasks` in
+    the plan.
 
 `--strict` adds:
 
-16. Every requirement is named as proof by at least one task.
-17. Every line in both files is under 100 columns.
+17. Every requirement is named as proof by at least one task.
+18. Every line in both files is under 100 columns.
 
 ## 5. Build the commands
 
@@ -120,7 +123,7 @@ Shared rules for all commands:
 Deliverable: `npm test` covers DIRECTION.md section 9 and every rule in step 4.
 
 - `test/fixtures/pass/` : one valid change.
-- `test/fixtures/fail-<rule>/` : one fixture per rule 1 to 17. Each test asserts the exact
+- `test/fixtures/fail-<rule>/` : one fixture per rule 1 to 18. Each test asserts the exact
   `file:line` in the finding.
 - Command tests: `new` twice fails; `archive` with an unchecked task fails and names the
   id, then moves with `--force`; `archive` into an existing target fails; `tasks --json`
