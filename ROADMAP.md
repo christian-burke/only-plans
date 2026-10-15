@@ -16,12 +16,22 @@ Fixed. DIRECTION.md does not state these; the steps below assume them.
 - Archive root: `docs/changes/archive/`, one constant, no flag.
 - Language: JavaScript with `// @ts-check` and JSDoc `@typedef` blocks for the parser
   output shapes. No TypeScript, no build step, no `typescript` package.
+- Package name: `only-plans`. Bin name: `onlyplans`.
+- Close-Out: not parsed. `archive` gates only on lines under `## Tasks`. The orchestrator
+  checks its own Close-Out before it calls `archive`.
+- Proof kind: a proof that contains `/` or `::` is a path, anything else is a scenario
+  name, and a scenario name may not contain `/`. A root file such as `Makefile` reads as a
+  scenario name and fails; the fix text says to write `./Makefile`.
+- Repo root: walk up from the current directory to the nearest folder holding
+  `docs/changes/`. `init` uses the current directory, but refuses with one line if a
+  `docs/changes/` already exists above it.
+- Git: one branch, one commit per step, one PR. No AI attribution.
 
 ## 1. Scaffold the repo
 
 Deliverable: `npm test` runs and passes zero tests. `npx .` prints usage.
 
-- `package.json`: name `onlyplans`, version `0.1.0`, `bin`, `files`, `engines.node >= 24`,
+- `package.json`: name `only-plans`, version `0.1.0`, `bin`, `files`, `engines.node >= 24`,
   `license`, no `dependencies`, `scripts.test = node --test`.
 - `LICENSE` (MIT), `CHANGELOG.md` (Unreleased), `.gitignore`, `.editorconfig`.
 - `bin/onlyplans.js` with a shebang, `// @ts-check`, usage text, and exit codes. No
@@ -50,7 +60,7 @@ Everything after this step reads from these parsers and nothing else.
   `## Requirements`.
 - Plan parser: title, `## Tasks`, task line grammar (checkbox, id, text, `—` separated
   `key: value` fields), `## Close-Out`, `## Notes` (kept opaque).
-- Proof parser: scenario name vs path, optional `::<name>` suffix.
+- Proof parser: path when it contains `/` or `::`, else scenario name.
 - JSDoc `@typedef` for each shape: `Spec`, `Requirement`, `Scenario`, `Plan`, `Task`,
   `Proof`, `Finding`. Every parser returns one of them.
 - One error type: `{file, line, what, fix}` rendered as
@@ -89,7 +99,8 @@ Deliverable: every row of the command table in DIRECTION.md section 6 works by h
 
 In dependency order:
 
-- `init`: create `docs/changes/` and `archive/` with `.gitkeep`. Idempotent.
+- `init`: create `docs/changes/` and `archive/` with `.gitkeep`. Idempotent. Refuses if a
+  root exists above.
 - `new <id>`: check kebab-case, check active and archived ids, copy templates, fill `<id>`
   and the title (dashes turned into spaces).
 - `tasks <id> [--json]`: parsed task lines. JSON keeps unknown fields under `fields`.
@@ -127,13 +138,13 @@ Deliverable: `bin/onlyplans.js` passes the AGENTS.md smell scan.
 
 ## 8. Document and release
 
-Deliverable: `onlyplans@0.1.0` on npm.
+Deliverable: `only-plans@0.1.0` on npm.
 
 - `README.md` on one screen: the layout, the task grammar, the seven commands.
 - `CHANGELOG.md` entry for `0.1.0`.
 - `npm pack --dry-run` shows only `bin/`, `templates/`, `README.md`, `LICENSE`.
 - Smoke test in an empty directory: `init`, `new`, `validate`, `archive`.
-- Tag and publish. Commits carry no AI attribution.
+- Tag. Publish is a manual step by the owner after the PR merges.
 
 ## 9. Hand off to only-orchestrator
 
