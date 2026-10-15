@@ -14,7 +14,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test test/*.test.js"
   },
   "keywords": [
     "spec",

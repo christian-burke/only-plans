@@ -294,8 +294,7 @@ function planFindings(plan, id) {
 
 /** @param {Task} task @param {Proof} proof */
 function missingScenarioFinding(task, proof) {
-  const hint = proof.target.includes('.') && !proof.target.includes(' ')
-    ? `; for a root file write ./${proof.target}` : '';
+  const hint = /\s/.test(proof.target) ? '' : `; for a root file write ./${proof.target}`;
   return finding(PLAN, task.line, `no scenario named "${proof.target}"${hint}`,
     'name a scenario from spec.md');
 }
