@@ -63,7 +63,7 @@ const SHELL_SCRIPTS = {
     "  local -a words",
     '  words=("${COMP_WORDS[@]:1}")',
     "  local IFS=$'\\n'",
-    '  COMPREPLY=($(onlyplans ' + COMPLETE + ' "${words[@]}" 2>/dev/null))',
+    "  COMPREPLY=($(onlyplans " + COMPLETE + ' "${words[@]}" 2>/dev/null))',
     "}",
     "complete -F _onlyplans onlyplans",
   ],
