@@ -156,3 +156,21 @@ Out of this repo's scope. Record what the adapter can rely on:
 - Stable surface: `new`, `tasks --json`, `criteria`, `validate --strict`, `archive`.
 - Unknown task fields (`kind`, `files`, `independent`) pass through `tasks --json` untouched.
 - `## Notes` is free text. The adapter may overwrite it before `archive`.
+
+## 10. `init --no-agents`
+
+Next PR. `init` also upserts a marked block into `AGENTS.md` at the repo root, so agents that
+read that file learn the tool. `--no-agents` skips it.
+
+- Markers: `<!-- onlyplans:start -->` and `<!-- onlyplans:end -->`, which render invisibly.
+- Mechanism: the same upsert `setup --tabcomplete` uses. Re-running `init` after an upgrade
+  refreshes the block and touches nothing else. `init` stays idempotent and non-interactive.
+- File: `AGENTS.md` next to `docs/`, created if missing, appended after a blank line otherwise.
+- Contents, kept short: the layout, the task line grammar with `proof`, and the commands an
+  agent runs in order: `new`, `validate --strict`, `tasks --json`, `criteria`, check the box,
+  `archive`.
+- DIRECTION.md: section 6 lists `AGENTS.md` beside the shell profile as the writes outside
+  `docs/changes/`. Section 1 stays true: the block is generic guidance, not orchestrator-aware.
+- The only-orchestrator adapter passes `--no-agents` when a preset should not write the block.
+- Tests: added, updated, unchanged, `--no-agents`, and that the rest of an existing
+  `AGENTS.md` is byte-for-byte intact.

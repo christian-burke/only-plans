@@ -43,7 +43,7 @@ or `::` is a path. Other fields are kept and ignored. Ids ascend. Only `[x]` cou
 - `onlyplans criteria <id> <task>`: the scenario the task's proof names, verbatim.
 - `onlyplans validate <id> [--strict]`: `PASS`, or one finding per line as `file:line`.
 - `onlyplans archive <id> [--date D] [--force]`: moves the change to the archive.
-- `onlyplans completion <zsh|bash|powershell>`: prints a tab-completion script.
+- `onlyplans setup --tabcomplete <zsh|bash|powershell>`: adds tab completion to your shell.
 
 `<id>` may also be given as a path, such as `docs/changes/add-login/`.
 
@@ -52,15 +52,15 @@ never writes outside `docs/changes/`.
 
 ## Tab completion
 
-Completion offers command names, active change ids, task ids, and flags. It needs the
-`onlyplans` command on your path, so install globally or `npm link`; the shell cannot complete
-through `npx`. Add one line to your shell profile:
+```
+onlyplans setup --tabcomplete zsh        # or bash, or powershell
+```
 
-```
-eval "$(onlyplans completion zsh)"          # .zshrc, after compinit
-eval "$(onlyplans completion bash)"         # .bashrc
-onlyplans completion powershell | Out-String | Invoke-Expression   # $PROFILE
-```
+This writes a marked block into your shell profile: `.zshrc`, `.bash_profile` on macOS,
+`.bashrc` elsewhere, or PowerShell's `$PROFILE`. Open a new shell, and Tab offers command
+names, active change ids, task ids, and flags. Run it again after an upgrade to refresh the
+block. It needs the `onlyplans` command on your path, so install globally or `npm link`; the
+shell cannot complete through `npx`.
 
 ## Credits
 

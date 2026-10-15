@@ -16,14 +16,20 @@ function copyFixture(name) {
   return dir;
 }
 
-/** Runs the bin in `cwd` and returns { status, stdout, stderr }. */
-function run(cwd, ...args) {
-  const result = spawnSync(process.execPath, [BIN, ...args], { cwd, encoding: "utf8" });
+/** Runs the bin with the given cwd and env overrides; returns { status, stdout, stderr }. */
+function runIn({ cwd, env = {} }, ...args) {
+  const options = { cwd, encoding: "utf8", env: { ...process.env, ...env } };
+  const result = spawnSync(process.execPath, [BIN, ...args], options);
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+}
+
+/** Runs the bin in `cwd` with the inherited environment. */
+function run(cwd, ...args) {
+  return runIn({ cwd }, ...args);
 }
 
 function fixtureFile(name, file) {
   return fs.readFileSync(path.join(FIXTURES, name, "docs", "changes", ID, file), "utf8");
 }
 
-module.exports = { ID, copyFixture, run, fixtureFile };
+module.exports = { ID, copyFixture, run, runIn, fixtureFile };

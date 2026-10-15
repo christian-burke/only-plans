@@ -35,32 +35,27 @@ const USAGE = `usage: onlyplans <command> [args]
   criteria <id> <task>                       the scenario a task's proof names
   validate <id> [--strict]                   check both files, print PASS or findings
   archive <id> [--date YYYY-MM-DD] [--force] move a finished change to the archive
-  completion <zsh|bash|powershell>           print a tab-completion script for the shell
-  --tabcomplete <zsh|bash|powershell>        add tab completion to your shell profile
+  setup --tabcomplete <zsh|bash|powershell>  add tab completion to your shell profile
 
 <id> may also be given as a path, such as docs/changes/<id>/.`;
 
 const COMPLETE = "__complete";
-const TABCOMPLETE = "--tabcomplete";
-const PROFILE_MARK = "# onlyplans tab completion";
+const VALUE_FLAGS = new Set(["date", "tabcomplete"]);
+const SHELL_MARKERS = ["# >>> onlyplans >>>", "# <<< onlyplans <<<"];
 
-/** The line --tabcomplete appends to the profile, which loads the script on every new shell. */
-const PROFILE_LINES = {
-  zsh: 'eval "$(onlyplans completion zsh)"',
-  bash: 'eval "$(onlyplans completion bash)"',
-  powershell: "onlyplans completion powershell | Out-String | Invoke-Expression",
-};
-
-/** Each script hands the words typed so far to `onlyplans __complete` and lists what it prints. */
+/**
+ * The block `setup --tabcomplete` writes into the profile. Each script hands the words typed so
+ * far to `onlyplans __complete` and lists what it prints, so the logic lives in one place and
+ * the block never needs to change.
+ */
 const SHELL_SCRIPTS = {
   zsh: [
-    "#compdef onlyplans",
-    "(( $+functions[compdef] )) || { autoload -Uz compinit && compinit; }",
     "_onlyplans() {",
     "  local -a candidates",
     '  candidates=(${(f)"$(onlyplans ' + COMPLETE + ' "${words[@]:1}" 2>/dev/null)"})',
     '  compadd -- "${candidates[@]}"',
     "}",
+    "(( $+functions[compdef] )) || { autoload -Uz compinit && compinit; }",
     "compdef _onlyplans onlyplans",
   ],
   bash: [
@@ -746,15 +741,13 @@ function archive(ctx) {
 }
 
 /** @param {Ctx} ctx */
-/** @param {string | undefined} shell @returns {keyof SHELL_SCRIPTS} */
+/** @param {string | boolean | undefined} shell @returns {keyof SHELL_SCRIPTS} */
 function requireShell(shell) {
-  if (shell && shell in SHELL_SCRIPTS) return /** @type {keyof SHELL_SCRIPTS} */ (shell);
-  throw new CliError(`${shell ?? "<shell>"}: unknown shell — use zsh, bash, or powershell`, EXIT.usage);
-}
-
-/** @param {Ctx} ctx */
-function completion(ctx) {
-  print(SHELL_SCRIPTS[requireShell(ctx.positional[0])].join("\n"));
+  if (typeof shell === "string" && shell in SHELL_SCRIPTS) {
+    return /** @type {keyof SHELL_SCRIPTS} */ (shell);
+  }
+  const given = shell || "<shell>";
+  throw new CliError(`${given}: unknown shell — use zsh, bash, or powershell`, EXIT.usage);
 }
 
 /** Asks PowerShell for $PROFILE, since it is not an environment variable. */
@@ -764,8 +757,8 @@ function powershellProfile() {
     if (result.status === 0 && result.stdout.trim()) return result.stdout.trim();
   }
   throw new CliError(
-    "pwsh: not found — add this line to your PowerShell $PROFILE by hand:" +
-      ` ${PROFILE_LINES.powershell}`,
+    "pwsh: not found — run onlyplans setup --tabcomplete powershell from PowerShell, or copy" +
+      " the block from a zsh or bash profile into $PROFILE by hand",
   );
 }
 
@@ -779,21 +772,39 @@ function profilePath(shell) {
   return powershellProfile();
 }
 
-/** @param {string} shell */
-function tabcomplete(shell) {
-  const name = requireShell(shell);
-  const profile = profilePath(name);
-  const line = `${PROFILE_LINES[name]}  ${PROFILE_MARK}`;
-  const existing = fs.existsSync(profile) ? fs.readFileSync(profile, "utf8") : "";
-  if (existing.includes(PROFILE_LINES[name])) {
-    print(`${profile}: already loads onlyplans completion`);
-    return EXIT.ok;
+/**
+ * Writes `body` between the markers in `file`, replacing an earlier block or appending a new one.
+ * Everything outside the markers is left as it was.
+ * @param {string} file @param {string[]} markers @param {string} body
+ * @returns {"added" | "updated" | "unchanged"}
+ */
+function upsertBlock(file, [begin, end], body) {
+  const block = `${begin}\n${body}\n${end}`;
+  const existing = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  const start = existing.indexOf(begin);
+  const stop = existing.indexOf(end, start);
+  if (start >= 0 && stop >= 0) {
+    const current = existing.slice(start, stop + end.length);
+    if (current === block) return "unchanged";
+    fs.writeFileSync(file, existing.slice(0, start) + block + existing.slice(stop + end.length));
+    return "updated";
   }
-  fs.mkdirSync(path.dirname(profile), { recursive: true });
-  const separator = existing && !existing.endsWith("\n") ? "\n" : "";
-  fs.appendFileSync(profile, `${separator}${line}\n`);
-  print(`${profile}: added "${PROFILE_LINES[name]}". Open a new shell to use it.`);
-  return EXIT.ok;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const separator = !existing ? "" : existing.endsWith("\n") ? "\n" : "\n\n";
+  fs.appendFileSync(file, `${separator}${block}\n`);
+  return "added";
+}
+
+/** @param {Ctx} ctx */
+function setup(ctx) {
+  if (!("tabcomplete" in ctx.flags)) {
+    throw new CliError("setup needs --tabcomplete <zsh|bash|powershell>", EXIT.usage);
+  }
+  const shell = requireShell(ctx.flags.tabcomplete);
+  const profile = profilePath(shell);
+  const outcome = upsertBlock(profile, SHELL_MARKERS, SHELL_SCRIPTS[shell].join("\n"));
+  const next = outcome === "unchanged" ? "" : " — open a new shell to use it";
+  print(`${profile}: ${outcome} onlyplans tab completion${next}`);
 }
 
 /** @param {string} cwd */
@@ -823,8 +834,8 @@ function completeCriteria(cwd, args) {
 }
 
 /** @param {string} cwd @param {string[]} args */
-function completeShell(cwd, args) {
-  return args.length === 1 ? Object.keys(SHELL_SCRIPTS) : [];
+function completeSetup(cwd, args) {
+  return args[args.length - 2] === "--tabcomplete" ? Object.keys(SHELL_SCRIPTS) : [];
 }
 
 /**
@@ -841,7 +852,7 @@ const COMMANDS = {
   criteria: { arity: 2, flags: [], run: criteria, complete: completeCriteria },
   validate: { arity: 1, flags: ["strict"], run: validate, complete: completeId },
   archive: { arity: 1, flags: ["date", "force"], run: archive, complete: completeId },
-  completion: { arity: 1, flags: [], run: completion, complete: completeShell },
+  setup: { arity: 0, flags: ["tabcomplete"], run: setup, complete: completeSetup },
 };
 
 /**
@@ -875,8 +886,9 @@ function parseArgs(argv) {
   const flags = {};
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--date") flags.date = argv[++i] ?? "";
-    else if (arg.startsWith("--")) flags[arg.slice(2)] = true;
+    const name = arg.startsWith("--") ? arg.slice(2) : null;
+    if (name && VALUE_FLAGS.has(name)) flags[name] = argv[++i] ?? "";
+    else if (name) flags[name] = true;
     else positional.push(arg);
   }
   return { positional, flags };
@@ -891,7 +903,6 @@ function usageError(message) {
 /** @param {string[]} argv */
 function main(argv) {
   if (argv[0] === COMPLETE) return complete(process.cwd(), argv.slice(1));
-  if (argv[0] === TABCOMPLETE) return runCli(() => tabcomplete(argv[1]));
   const {
     positional: [name, ...positional],
     flags,

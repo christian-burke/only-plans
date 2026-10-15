@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
-const { ID, copyFixture, run } = require("./helpers");
+const { ID, copyFixture, run, runIn } = require("./helpers");
 
 const BIN = path.join(__dirname, "..", "bin", "onlyplans.js");
 const CHANGE_PATH = `docs/changes/${ID}`;
@@ -51,7 +51,7 @@ test("a path that is not a change folder is a usage error", () => {
 });
 
 const CANDIDATES = [
-  [[], ["init", "new", "list", "tasks", "criteria", "validate", "archive", "completion"]],
+  [[], ["init", "new", "list", "tasks", "criteria", "validate", "archive", "setup"]],
   [["ta"], ["tasks"]],
   [["tasks", ""], [ID]],
   [["tasks", "add"], [ID]],
@@ -63,8 +63,10 @@ const CANDIDATES = [
   [["criteria", "nope", ""], []],
   [["tasks", ID, "--"], ["--json"]],
   [["archive", ID, "--f"], ["--force"]],
-  [["completion", ""], ["zsh", "bash", "powershell"]],
-  [["completion", "p"], ["powershell"]],
+  [["setup", "--"], ["--tabcomplete"]],
+  [["setup", "--tabcomplete", ""], ["zsh", "bash", "powershell"]],
+  [["setup", "--tabcomplete", "p"], ["powershell"]],
+  [["setup", "--tabcomplete", "zsh", ""], []],
   [["new", ""], []],
   [["bogus", ""], []],
   [["tasks", ID, "extra"], []],
@@ -81,37 +83,118 @@ test("__complete outside a root prints nothing and exits 0", () => {
   assert.deepEqual(completeLines(cwd, "tasks", ""), []);
 });
 
-test("completion prints a script per shell and rejects others", () => {
-  const cwd = copyFixture("pass");
-  for (const [shell, marker] of [
-    ["zsh", /^compdef _onlyplans onlyplans$/m],
-    ["bash", /^complete -F _onlyplans onlyplans$/m],
-    ["powershell", /^Register-ArgumentCompleter -Native -CommandName onlyplans/m],
-  ]) {
-    const result = run(cwd, "completion", shell);
-    assert.equal(result.status, 0, shell);
-    assert.match(result.stdout, marker);
-    assert.match(result.stdout, /__complete/);
-  }
-  assert.equal(run(cwd, "completion", "fish").status, 2);
+const MARKERS = ["# >>> onlyplans >>>", "# <<< onlyplans <<<"];
+
+/** A temp home passed as both HOME and ZDOTDIR, so real profiles stay untouched. */
+function tempHome() {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "onlyplans-home-"));
+  return { home, env: { HOME: home, ZDOTDIR: home } };
+}
+
+function setup(env, ...args) {
+  return runIn({ cwd: os.tmpdir(), env }, "setup", ...args);
+}
+
+function blockOf(text) {
+  const start = text.indexOf(MARKERS[0]);
+  const stop = text.indexOf(MARKERS[1]);
+  assert.ok(start >= 0 && stop > start, "block present");
+  return text.slice(start, stop + MARKERS[1].length);
+}
+
+function bashProfileName() {
+  return process.platform === "darwin" ? ".bash_profile" : ".bashrc";
+}
+
+test("setup --tabcomplete zsh adds one marked block, then reports unchanged", () => {
+  const { home, env } = tempHome();
+  const profile = path.join(home, ".zshrc");
+  const first = setup(env, "--tabcomplete", "zsh");
+  assert.equal(first.status, 0, first.stderr);
+  assert.equal(
+    first.stdout,
+    `${profile}: added onlyplans tab completion — open a new shell to use it\n`,
+  );
+  const text = fs.readFileSync(profile, "utf8");
+  assert.match(blockOf(text), /_onlyplans\(\)/);
+  assert.match(blockOf(text), /compdef _onlyplans onlyplans/);
+  const second = setup(env, "--tabcomplete", "zsh");
+  assert.equal(second.stdout, `${profile}: unchanged onlyplans tab completion\n`);
+  assert.equal(fs.readFileSync(profile, "utf8"), text);
 });
 
-test("the bash script fills COMPREPLY from the tool", () => {
+test("setup --tabcomplete repairs a changed block and leaves the rest of the file alone", () => {
+  const { home, env } = tempHome();
+  const profile = path.join(home, ".zshrc");
+  fs.writeFileSync(profile, "export BEFORE=1\n");
+  setup(env, "--tabcomplete", "zsh");
+  fs.appendFileSync(profile, "export AFTER=1\n");
+  const good = fs.readFileSync(profile, "utf8");
+  fs.writeFileSync(profile, good.replace("local -a candidates", "local -a broken"));
+  const result = setup(env, "--tabcomplete", "zsh");
+  assert.match(result.stdout, /: updated onlyplans tab completion/);
+  assert.equal(fs.readFileSync(profile, "utf8"), good);
+  assert.match(good, /^export BEFORE=1\n\n# >>> onlyplans >>>\n/);
+  assert.match(good, /# <<< onlyplans <<<\nexport AFTER=1\n$/);
+});
+
+test("setup --tabcomplete zsh honors ZDOTDIR over HOME", () => {
+  const { home, env } = tempHome();
+  const zdotdir = path.join(home, "zdot");
+  setup({ ...env, ZDOTDIR: zdotdir }, "--tabcomplete", "zsh");
+  assert.ok(fs.existsSync(path.join(zdotdir, ".zshrc")));
+  assert.ok(!fs.existsSync(path.join(home, ".zshrc")));
+});
+
+test("setup --tabcomplete bash appends after a blank line to the platform profile", () => {
+  const { home, env } = tempHome();
+  const profile = path.join(home, bashProfileName());
+  fs.writeFileSync(profile, "export X=1");
+  assert.equal(setup(env, "--tabcomplete", "bash").status, 0);
+  const text = fs.readFileSync(profile, "utf8");
+  assert.match(text, /^export X=1\n\n# >>> onlyplans >>>\n/);
+  assert.match(blockOf(text), /complete -F _onlyplans onlyplans/);
+});
+
+test("setup --tabcomplete powershell fails in one line when no PowerShell is on the PATH", () => {
+  const { env } = tempHome();
+  const noPwsh = { ...env, PATH: path.dirname(process.execPath) };
+  const result = setup(noPwsh, "--tabcomplete", "powershell");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /^pwsh: not found — /);
+});
+
+test("setup usage errors exit 2", () => {
+  const { env } = tempHome();
+  for (const args of [[], ["--tabcomplete"], ["--tabcomplete", "fish"], ["--json"]]) {
+    assert.equal(setup(env, ...args).status, 2, args.join(" "));
+  }
+});
+
+/** Installs completion into a temp home and returns the profile to source. */
+function installedProfile(shell) {
+  const { home, env } = tempHome();
+  assert.equal(setup(env, "--tabcomplete", shell).status, 0);
+  return path.join(home, shell === "zsh" ? ".zshrc" : bashProfileName());
+}
+
+test("the installed bash block fills COMPREPLY from the tool", () => {
   const cwd = copyFixture("pass");
+  const profile = installedProfile("bash");
   const script = (words) =>
-    'eval "$(onlyplans completion bash)";' +
-    ` COMP_WORDS=(${words}); COMP_CWORD=$((${"${#COMP_WORDS[@]}"} - 1));` +
+    `source "${profile}"; COMP_WORDS=(${words}); COMP_CWORD=$((${"${#COMP_WORDS[@]}"} - 1));` +
     ' _onlyplans; printf "%s\\n" "${COMPREPLY[@]}"';
   assert.deepEqual(shellLines("bash", cwd, script('onlyplans tasks ""')), [ID]);
   const forTask = script(`onlyplans criteria ${ID} "2"`);
   assert.deepEqual(shellLines("bash", cwd, forTask), ["2.1", "2.2"]);
 });
 
-test("the zsh script hands candidates to compadd", () => {
+test("the installed zsh block hands candidates to compadd", () => {
   const cwd = copyFixture("pass");
+  const profile = installedProfile("zsh");
   const script = (words) =>
     'compdef() { :; }; compadd() { shift; printf "%s\\n" "$@"; };' +
-    ` eval "$(onlyplans completion zsh)"; words=(${words}); _onlyplans`;
+    ` source "${profile}"; words=(${words}); _onlyplans`;
   assert.deepEqual(shellLines("zsh", cwd, script('onlyplans tasks ""')), [ID]);
   const forTask = script(`onlyplans criteria ${ID} "2"`);
   assert.deepEqual(shellLines("zsh", cwd, forTask), ["2.1", "2.2"]);
