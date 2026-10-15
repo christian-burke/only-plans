@@ -196,7 +196,8 @@ test("any command outside a root fails in one line that points at init", () => {
   const cwd = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "onlyplans-noroot-"));
   const result = run(cwd, "list");
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /^docs\/changes: not found in \S+ or above — run onlyplans init\n$/);
+  const expected = /^docs\/changes: not found in \S+ or above — run onlyplans init\n$/;
+  assert.match(result.stderr, expected);
 });
 
 test("tasks on a change without plan.md fails with the missing-file finding", () => {
