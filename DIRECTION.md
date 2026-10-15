@@ -92,11 +92,12 @@ Node is already present wherever Claude Code or OpenSpec runs, so it adds no run
 - Exit 0 on success.
 - Every error is one line: what failed, `file:line` where, and what to do.
 - The tool never commits or branches. Callers own git. It writes only under `docs/changes/`,
-  except `setup`, which writes a marked block to the shell profile.
+  except `init`, which upserts a marked section into `AGENTS.md`, and `setup`, which writes a
+  marked block to the shell profile.
 
 | Command                                                | Does                                                                                                                                                                               |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `onlyplans init`                                       | Creates `docs/changes/` and `docs/changes/archive/`, each with a `.gitkeep`. Idempotent.                                                                                           |
+| `onlyplans init [--no-agents]` | Creates `docs/changes/` and `docs/changes/archive/`, each with a `.gitkeep`, and upserts a marked section into `AGENTS.md` at the root. `--no-agents` skips the section. Idempotent. |
 | `onlyplans new <id>`                                   | Creates the folder from the two templates with `<id>` filled in. Refuses if the id exists, active or archived.                                                                     |
 | `onlyplans list [--json]`                              | Active changes with task counts: `{id, total, done}`.                                                                                                                              |
 | `onlyplans tasks <id> [--json]`                        | The parsed task lines: `{id, text, done, fields}`. `fields` holds every `key: value` on the line.                                                                                  |

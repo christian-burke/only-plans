@@ -159,7 +159,7 @@ Out of this repo's scope. Record what the adapter can rely on:
 
 ## 10. `init --no-agents`
 
-Next PR. `init` also upserts a marked block into `AGENTS.md` at the repo root, so agents that
+Done. `init` also upserts a marked block into `AGENTS.md` at the repo root, so agents that
 read that file learn the tool. `--no-agents` skips it.
 
 - Markers: `<!-- onlyplans:start -->` and `<!-- onlyplans:end -->`, which render invisibly.

@@ -28,7 +28,7 @@ const STEP_ORDER = "GIVEN,WHEN,THEN";
 
 const USAGE = `usage: onlyplans <command> [args]
 
-  init                                       create docs/changes/ and its archive/
+  init [--no-agents]                         create docs/changes/ and add an AGENTS.md section
   new <id>                                   create a change from the templates
   list [--json]                              active changes with task counts
   tasks <id> [--json]                        the parsed task lines of a change
@@ -43,6 +43,30 @@ const COMPLETE = "__complete";
 const VALUE_FLAGS = new Set(["date", "tabcomplete"]);
 const SHELL_MARKERS = ["# >>> onlyplans >>>", "# <<< onlyplans <<<"];
 const COMPLETION_DIR = path.join(__dirname, "..", "completion");
+const AGENTS_FILE = "AGENTS.md";
+const AGENTS_MARKERS = ["<!-- onlyplans:start -->", "<!-- onlyplans:end -->"];
+
+/** The section `init` upserts into AGENTS.md so agents that read it learn the tool. */
+const AGENTS_BLOCK = [
+  "## OnlyPlans",
+  "",
+  "Changes live in `docs/changes/<id>/` as `spec.md` and `plan.md`. Finished changes move to",
+  "`docs/changes/archive/`. Run `onlyplans --help` for all commands.",
+  "",
+  "Work a change in this order:",
+  "",
+  "1. `onlyplans new <id>` creates the folder. Fill `spec.md` with requirements and",
+  "   scenarios, and `plan.md` with tasks. Each task names a proof: a scenario from",
+  "   `spec.md` or a test path.",
+  "2. `onlyplans validate <id> --strict` must print `PASS` before any task starts.",
+  "3. `onlyplans tasks <id> --json` lists the tasks. `onlyplans criteria <id> <task>` prints the",
+  "   scenario a task must satisfy.",
+  "4. Do one task, make its proof pass, then check its box in `plan.md`.",
+  "5. `onlyplans archive <id>` when every box is checked. Never edit `docs/changes/archive/`.",
+  "",
+  "Task line grammar: `- [ ] 1.1 <task> — proof: <Scenario name>`. Extra `key: value` fields",
+  "are allowed and kept.",
+].join("\n");
 
 /** The completion script shipped for each shell, and the profile line that loads it. */
 const SHELLS = {
@@ -611,6 +635,9 @@ function init(ctx) {
     if (!fs.existsSync(keep)) fs.writeFileSync(keep, "");
     print(path.relative(ctx.cwd, dir) + path.sep);
   }
+  if (ctx.flags["no-agents"]) return;
+  const outcome = upsertBlock(path.join(ctx.cwd, AGENTS_FILE), AGENTS_MARKERS, AGENTS_BLOCK);
+  print(`${AGENTS_FILE}: ${outcome} onlyplans section`);
 }
 
 /** @param {Ctx} ctx */
@@ -834,7 +861,7 @@ const FLAG_VALUES = {
 
 /** @type {Record<string, Command>} */
 const COMMANDS = {
-  init: { arity: 0, flags: [], run: init },
+  init: { arity: 0, flags: ["no-agents"], run: init },
   new: { arity: 1, flags: [], run: create },
   list: { arity: 0, flags: ["json"], run: list },
   tasks: { arity: 1, flags: ["json"], run: tasks, positional: [idCompletion] },
