@@ -42,44 +42,24 @@ const USAGE = `usage: onlyplans <command> [args]
 const COMPLETE = "__complete";
 const VALUE_FLAGS = new Set(["date", "tabcomplete"]);
 const SHELL_MARKERS = ["# >>> onlyplans >>>", "# <<< onlyplans <<<"];
+const COMPLETION_DIR = path.join(__dirname, "..", "completion");
 
-/**
- * The block `setup --tabcomplete` writes into the profile. Each script hands the words typed so
- * far to `onlyplans __complete` and lists what it prints, so the logic lives in one place and
- * the block never needs to change.
- */
-const SHELL_SCRIPTS = {
-  zsh: [
-    "_onlyplans() {",
-    "  local -a candidates",
-    '  candidates=(${(f)"$(onlyplans ' + COMPLETE + ' "${words[@]:1}" 2>/dev/null)"})',
-    '  (( ${#candidates} )) && compadd -- "${candidates[@]}" ||' +
-      " _message -r 'onlyplans: nothing to complete here (no docs/changes/ above, or no match)'",
-    "}",
-    "(( $+functions[compdef] )) || { autoload -Uz compinit && compinit; }",
-    "compdef _onlyplans onlyplans",
-  ],
-  bash: [
-    "_onlyplans() {",
-    "  local -a words",
-    '  words=("${COMP_WORDS[@]:1}")',
-    "  local IFS=$'\\n'",
-    "  COMPREPLY=($(onlyplans " + COMPLETE + ' "${words[@]}" 2>/dev/null))',
-    "}",
-    "complete -F _onlyplans onlyplans",
-  ],
-  powershell: [
-    "Register-ArgumentCompleter -Native -CommandName onlyplans -ScriptBlock {",
-    "  param($wordToComplete, $commandAst, $cursorPosition)",
-    "  $words = @($commandAst.CommandElements | Select-Object -Skip 1 |" +
-      " ForEach-Object { $_.ToString() })",
-    "  if ($wordToComplete -eq '') { $words += '' }",
-    "  onlyplans " + COMPLETE + " @words 2>$null | ForEach-Object {",
-    "    [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)",
-    "  }",
-    "}",
-  ],
+/** The completion script shipped for each shell, and the profile line that loads it. */
+const SHELLS = {
+  zsh: { file: "onlyplans.zsh", load: sourceLine },
+  bash: { file: "onlyplans.bash", load: sourceLine },
+  powershell: { file: "onlyplans.ps1", load: dotSourceLine },
 };
+
+/** @param {string} file */
+function sourceLine(file) {
+  return `if [ -f '${file}' ]; then . '${file}'; fi`;
+}
+
+/** @param {string} file */
+function dotSourceLine(file) {
+  return `if (Test-Path '${file}') { . '${file}' }`;
+}
 
 /**
  * @typedef {{ n: number, text: string }} Line
@@ -741,12 +721,9 @@ function archive(ctx) {
   print(relArchived(targetName) + path.sep);
 }
 
-/** @param {Ctx} ctx */
-/** @param {string | boolean | undefined} shell @returns {keyof SHELL_SCRIPTS} */
+/** @param {string | boolean | undefined} shell @returns {keyof SHELLS} */
 function requireShell(shell) {
-  if (typeof shell === "string" && shell in SHELL_SCRIPTS) {
-    return /** @type {keyof SHELL_SCRIPTS} */ (shell);
-  }
+  if (typeof shell === "string" && shell in SHELLS) return /** @type {keyof SHELLS} */ (shell);
   const given = shell || "<shell>";
   throw new CliError(`${given}: unknown shell — use zsh, bash, or powershell`, EXIT.usage);
 }
@@ -758,12 +735,12 @@ function powershellProfile() {
     if (result.status === 0 && result.stdout.trim()) return result.stdout.trim();
   }
   throw new CliError(
-    "pwsh: not found — run onlyplans setup --tabcomplete powershell from PowerShell, or copy" +
-      " the block from a zsh or bash profile into $PROFILE by hand",
+    "pwsh: not found — run onlyplans setup --tabcomplete powershell from PowerShell, or" +
+      ` dot-source ${path.join(COMPLETION_DIR, SHELLS.powershell.file)} from $PROFILE by hand`,
   );
 }
 
-/** @param {keyof SHELL_SCRIPTS} shell */
+/** @param {keyof SHELLS} shell */
 function profilePath(shell) {
   const home = os.homedir();
   if (shell === "zsh") return path.join(process.env.ZDOTDIR || home, ".zshrc");
@@ -803,45 +780,54 @@ function setup(ctx) {
   }
   const shell = requireShell(ctx.flags.tabcomplete);
   const profile = profilePath(shell);
-  const outcome = upsertBlock(profile, SHELL_MARKERS, SHELL_SCRIPTS[shell].join("\n"));
+  const script = path.join(COMPLETION_DIR, SHELLS[shell].file);
+  const outcome = upsertBlock(profile, SHELL_MARKERS, SHELLS[shell].load(script));
   const next = outcome === "unchanged" ? "" : " — open a new shell to use it";
   print(`${profile}: ${outcome} onlyplans tab completion${next}`);
 }
 
-/** @param {string} cwd */
-function idCandidates(cwd) {
-  const root = locateRoot(cwd);
-  return root ? activeIds(root) : [];
+/**
+ * What Tab may offer: candidates, or a hint for the user when there are none.
+ * @typedef {{ list: string[], hint: string }} Completion
+ */
+
+/** @param {string[]} list @param {string} [hint] @returns {Completion} */
+function completion(list, hint = "") {
+  return { list, hint };
 }
 
-/** @param {string} cwd @param {string} arg */
-function taskIdCandidates(cwd, arg) {
+/** @param {string} cwd @returns {Completion} */
+function idCompletion(cwd) {
+  const root = locateRoot(cwd);
+  if (!root) {
+    return completion([], "onlyplans: no docs/changes/ above here — run onlyplans init");
+  }
+  const ids = activeIds(root);
+  const hint = ids.length ? "" : "onlyplans: no active changes — run onlyplans new <id>";
+  return completion(ids, hint);
+}
+
+/** @param {string} cwd @param {string[]} before @returns {Completion} */
+function taskIdCompletion(cwd, [arg]) {
   try {
-    return readPlan(changeFromCtx({ cwd, positional: [arg], flags: {} })).tasks.map((t) => t.id);
+    const plan = readPlan(changeFromCtx({ cwd, positional: [arg], flags: {} }));
+    const ids = plan.tasks.map((t) => t.id);
+    return completion(ids, ids.length ? "" : `onlyplans: no tasks in ${arg}`);
   } catch (error) {
-    if (error instanceof CliError) return [];
+    if (error instanceof CliError) return completion([], error.message);
     throw error;
   }
 }
 
-/** @param {string} cwd @param {string[]} args */
-function completeId(cwd, args) {
-  return args.length === 1 ? idCandidates(cwd) : [];
-}
-
-/** @param {string} cwd @param {string[]} args */
-function completeCriteria(cwd, args) {
-  return args.length === 2 ? taskIdCandidates(cwd, args[0]) : completeId(cwd, args);
-}
-
-/** @param {string} cwd @param {string[]} args */
-function completeSetup(cwd, args) {
-  return args[args.length - 2] === "--tabcomplete" ? Object.keys(SHELL_SCRIPTS) : [];
-}
+/** @type {Record<string, () => Completion>} */
+const FLAG_VALUES = {
+  tabcomplete: () => completion(Object.keys(SHELLS)),
+  date: () => completion([], "onlyplans: --date takes YYYY-MM-DD"),
+};
 
 /**
  * @typedef {{ arity: number, flags: string[], run: (ctx: Ctx) => number | void,
- *             complete?: (cwd: string, args: string[]) => string[] }} Command
+ *             positional?: Array<(cwd: string, before: string[]) => Completion> }} Command
  */
 
 /** @type {Record<string, Command>} */
@@ -849,33 +835,67 @@ const COMMANDS = {
   init: { arity: 0, flags: [], run: init },
   new: { arity: 1, flags: [], run: create },
   list: { arity: 0, flags: ["json"], run: list },
-  tasks: { arity: 1, flags: ["json"], run: tasks, complete: completeId },
-  criteria: { arity: 2, flags: [], run: criteria, complete: completeCriteria },
-  validate: { arity: 1, flags: ["strict"], run: validate, complete: completeId },
-  archive: { arity: 1, flags: ["date", "force"], run: archive, complete: completeId },
-  setup: { arity: 0, flags: ["tabcomplete"], run: setup, complete: completeSetup },
+  tasks: { arity: 1, flags: ["json"], run: tasks, positional: [idCompletion] },
+  criteria: { arity: 2, flags: [], run: criteria, positional: [idCompletion, taskIdCompletion] },
+  validate: { arity: 1, flags: ["strict"], run: validate, positional: [idCompletion] },
+  archive: { arity: 1, flags: ["date", "force"], run: archive, positional: [idCompletion] },
+  setup: { arity: 0, flags: ["tabcomplete"], run: setup },
 };
+
+/** Splits the words before the cursor into positionals and the flags already used.
+ * @param {string[]} before */
+function typedSoFar(before) {
+  /** @type {string[]} */
+  const positionals = [];
+  /** @type {Set<string>} */
+  const used = new Set();
+  for (let i = 0; i < before.length; i++) {
+    const name = before[i].startsWith("--") ? before[i].slice(2) : null;
+    if (name === null) positionals.push(before[i]);
+    else {
+      used.add(name);
+      if (VALUE_FLAGS.has(name)) i++;
+    }
+  }
+  return { positionals, used };
+}
+
+/** @param {Command} command @param {Set<string>} used */
+function flagCompletion(command, used) {
+  return completion(command.flags.filter((f) => !used.has(f)).map((f) => `--${f}`));
+}
 
 /**
  * The words typed so far. The last one is the word under the cursor, and may be empty.
- * @param {string} cwd @param {string[]} words
+ * @param {string} cwd @param {string[]} words @returns {Completion}
  */
 function candidates(cwd, words) {
   const [name, ...args] = words;
-  if (words.length <= 1) return Object.keys(COMMANDS);
+  if (words.length <= 1) return completion(Object.keys(COMMANDS));
   const command = COMMANDS[name];
-  if (!command) return [];
-  if (args[args.length - 1].startsWith("-")) return command.flags.map((flag) => `--${flag}`);
-  return command.complete ? command.complete(cwd, args) : [];
+  if (!command) return completion([], `onlyplans: unknown command ${name}`);
+  const before = args.slice(0, -1);
+  const current = args[args.length - 1];
+  const previous = before[before.length - 1];
+  const valueOf = previous?.startsWith("--") ? FLAG_VALUES[previous.slice(2)] : undefined;
+  if (valueOf) return valueOf();
+  const { positionals, used } = typedSoFar(before);
+  if (current.startsWith("-")) return flagCompletion(command, used);
+  const next = command.positional?.[positionals.length];
+  if (next) return next(cwd, positionals);
+  if (positionals.length < command.arity) return completion([]);
+  return flagCompletion(command, used);
 }
 
 /** @param {string} cwd @param {string[]} argv */
 function complete(cwd, argv) {
   const words = argv.length ? argv : [""];
   const current = words[words.length - 1];
-  candidates(cwd, words)
-    .filter((c) => c.startsWith(current))
-    .forEach(print);
+  const { list, hint } = candidates(cwd, words);
+  const matches = list.filter((c) => c.startsWith(current));
+  matches.forEach(print);
+  const noMatch = list.length ? `onlyplans: nothing matches "${current}"` : hint;
+  if (!matches.length && noMatch) process.stderr.write(`${noMatch}\n`);
   return EXIT.ok;
 }
 

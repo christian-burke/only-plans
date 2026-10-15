@@ -103,7 +103,7 @@ Node is already present wherever Claude Code or OpenSpec runs, so it adds no run
 | `onlyplans criteria <id> <task>`                       | Prints the scenario blocks the task's proof names, verbatim. Errors on a missing scenario. A path proof prints the path.                                                           |
 | `onlyplans validate <id> [--strict]`                   | Runs the rules for both files. Prints `PASS`, or one finding per line. `--strict` adds: every requirement is named as proof by at least one task, and lines are under 100 columns. |
 | `onlyplans archive <id> [--date YYYY-MM-DD] [--force]` | Refuses while a task is unchecked and names the ids, unless `--force`. Moves the folder to `archive/<date>-<id>/`. Refuses if the target exists. Does not touch git.               |
-| `onlyplans setup --tabcomplete <shell>`                | Upserts a marked block with the completion script into the profile of `zsh`, `bash`, or `powershell`. The script calls the tool for candidates.                                    |
+| `onlyplans setup --tabcomplete <shell>` | Upserts a marked block into the profile of `zsh`, `bash`, or `powershell` that sources the completion script shipped in `completion/`. The script asks the tool for candidates and hints. |
 
 ## 7. Templates
 

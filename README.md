@@ -56,11 +56,12 @@ never writes outside `docs/changes/`.
 onlyplans setup --tabcomplete zsh        # or bash, or powershell
 ```
 
-This writes a marked block into your shell profile: `.zshrc`, `.bash_profile` on macOS,
-`.bashrc` elsewhere, or PowerShell's `$PROFILE`. Open a new shell, and Tab offers command
-names, active change ids, task ids, and flags. Run it again after an upgrade to refresh the
-block. It needs the `onlyplans` command on your path, so install globally or `npm link`; the
-shell cannot complete through `npx`.
+This adds a marked two-line block to your shell profile that sources the completion script
+shipped with the package. Profiles: `.zshrc`, `.bash_profile` on macOS, `.bashrc` elsewhere,
+or PowerShell's `$PROFILE`. Open a new shell, and Tab offers command names, active change
+ids, task ids, flags, and a hint when there is nothing to offer. Run it again if the install
+path changes, such as after switching Node versions. It needs the `onlyplans` command on
+your path, so install globally or `npm link`; the shell cannot complete through `npx`.
 
 ## Credits
 

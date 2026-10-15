@@ -69,6 +69,7 @@ const CANDIDATES = [
   [["criteria", "nope", ""], []],
   [["tasks", ID, "--"], ["--json"]],
   [["archive", ID, "--f"], ["--force"]],
+  [["setup", ""], ["--tabcomplete"]],
   [["setup", "--"], ["--tabcomplete"]],
   [
     ["setup", "--tabcomplete", ""],
@@ -76,6 +77,13 @@ const CANDIDATES = [
   ],
   [["setup", "--tabcomplete", "p"], ["powershell"]],
   [["setup", "--tabcomplete", "zsh", ""], []],
+  [["tasks", ID, ""], ["--json"]],
+  [["tasks", ID, "--json", ""], []],
+  [["list", ""], ["--json"]],
+  [["init", ""], []],
+  [["criteria", ID, "2.1", ""], []],
+  [["archive", ID, "--date", ""], []],
+  [["archive", ID, "--date", "2026-01-01", ""], ["--force"]],
   [["new", ""], []],
   [["bogus", ""], []],
   [["tasks", ID, "extra"], []],
@@ -87,9 +95,52 @@ for (const [words, expected] of CANDIDATES) {
   });
 }
 
-test("__complete outside a root prints nothing and exits 0", () => {
+const HINTS = [
+  [["tasks", "zz"], /^onlyplans: nothing matches "zz"$/],
+  [["criteria", "nope", ""], /^docs\/changes\/nope: no such change/],
+  [["archive", ID, "--date", ""], /^onlyplans: --date takes YYYY-MM-DD$/],
+  [["bogus", ""], /^onlyplans: unknown command bogus$/],
+];
+
+for (const [words, expected] of HINTS) {
+  test(`__complete [${words.join(" ")}] hints on stderr`, () => {
+    const result = run(copyFixture("pass"), "__complete", ...words);
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr.trimEnd(), expected);
+  });
+}
+
+test("__complete stays silent when there is simply nothing left to offer", () => {
+  for (const words of [["init", ""], ["tasks", ID, "--json", ""], ["new", ""]]) {
+    const result = run(copyFixture("pass"), "__complete", ...words);
+    assert.equal(result.stdout + result.stderr, "", words.join(" "));
+  }
+});
+
+test("__complete outside a root hints to run init, with exit 0", () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "onlyplans-noroot-"));
-  assert.deepEqual(completeLines(cwd, "tasks", ""), []);
+  const result = run(cwd, "__complete", "tasks", "");
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /no docs\/changes\/ above here — run onlyplans init/);
+});
+
+test("__complete in an empty root hints to run new", () => {
+  const cwd = copyFixture("pass");
+  fs.rmSync(path.join(cwd, CHANGE_PATH), { recursive: true });
+  const result = run(cwd, "__complete", "validate", "");
+  assert.match(result.stderr, /no active changes — run onlyplans new/);
+});
+
+const COMPLETION_DIR = path.join(__dirname, "..", "completion");
+
+test("a completion script ships for every shell", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
+  assert.ok(pkg.files.includes("completion/"));
+  for (const file of ["onlyplans.zsh", "onlyplans.bash", "onlyplans.ps1"]) {
+    assert.match(fs.readFileSync(path.join(COMPLETION_DIR, file), "utf8"), /__complete/);
+  }
 });
 
 const MARKERS = ["# >>> onlyplans >>>", "# <<< onlyplans <<<"];
@@ -125,8 +176,9 @@ test("setup --tabcomplete zsh adds one marked block, then reports unchanged", ()
     `${profile}: added onlyplans tab completion — open a new shell to use it\n`,
   );
   const text = fs.readFileSync(profile, "utf8");
-  assert.match(blockOf(text), /_onlyplans\(\)/);
-  assert.match(blockOf(text), /compdef _onlyplans onlyplans/);
+  const script = path.join(COMPLETION_DIR, "onlyplans.zsh");
+  const line = `if [ -f '${script}' ]; then . '${script}'; fi`;
+  assert.equal(blockOf(text), `${MARKERS[0]}\n${line}\n${MARKERS[1]}`);
   const second = setup(env, "--tabcomplete", "zsh");
   assert.equal(second.stdout, `${profile}: unchanged onlyplans tab completion\n`);
   assert.equal(fs.readFileSync(profile, "utf8"), text);
@@ -139,7 +191,7 @@ test("setup --tabcomplete repairs a changed block and leaves the rest of the fil
   setup(env, "--tabcomplete", "zsh");
   fs.appendFileSync(profile, "export AFTER=1\n");
   const good = fs.readFileSync(profile, "utf8");
-  fs.writeFileSync(profile, good.replace("local -a candidates", "local -a broken"));
+  fs.writeFileSync(profile, good.replace("onlyplans.zsh", "onlyplans.old"));
   const result = setup(env, "--tabcomplete", "zsh");
   assert.match(result.stdout, /: updated onlyplans tab completion/);
   assert.equal(fs.readFileSync(profile, "utf8"), good);
@@ -162,7 +214,7 @@ test("setup --tabcomplete bash appends after a blank line to the platform profil
   assert.equal(setup(env, "--tabcomplete", "bash").status, 0);
   const text = fs.readFileSync(profile, "utf8");
   assert.match(text, /^export X=1\n\n# >>> onlyplans >>>\n/);
-  assert.match(blockOf(text), /complete -F _onlyplans onlyplans/);
+  assert.match(blockOf(text), /^if \[ -f '.*onlyplans\.bash' \]; then \. '.*'; fi$/m);
 });
 
 test("setup --tabcomplete powershell fails in one line when no PowerShell is on the PATH", () => {
