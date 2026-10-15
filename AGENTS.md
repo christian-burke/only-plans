@@ -1,4 +1,5 @@
 ## Rules
+
 - Never attribute git commits or PRs to Claude or any other AI model
 
 ## Code quality

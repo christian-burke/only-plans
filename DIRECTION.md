@@ -24,8 +24,7 @@ docs/changes/archive/<YYYY-MM-DD>-<id>/     # the folder, moved whole
 ```
 
 - `<id>` is kebab-case and unique among active and archived changes.
-- One root keeps one glob for tools. If the owner prefers `docs/ars
-  one constant in the tool.
+- One root keeps one glob for tools. The archive path is one constant in the tool.
 
 ## 4. spec.md
 
@@ -33,12 +32,17 @@ docs/changes/archive/<YYYY-MM-DD>-<id>/     # the folder, moved whole
 # <id> — <title>
 
 ## Why
+
 One to three sentences: the problem and the outcome.
 
 ## Requirements
+
 ### Requirement: <name>
+
 The system SHALL <behavior>.
+
 #### Scenario: <name>
+
 - GIVEN <context>
 - WHEN <action>
 - THEN <checkable outcome>
@@ -46,7 +50,7 @@ The system SHALL <behavior>.
 
 Rules:
 
-- Every requirement has at least one scenario, and its text contai
+- Every requirement has at least one scenario, and its text contains `SHALL`.
 - Every scenario has GIVEN, WHEN, and THEN lines, in that order.
 - Scenario names are unique within the file.
 - Nothing follows `## Requirements` except requirement blocks.
@@ -57,20 +61,23 @@ Rules:
 # <id> — Plan
 
 ## Tasks
+
 - [ ] 1.1 <task> — proof: <Scenario name>
 - [ ] 1.2 <task> — proof: tests/test_x.py::test_y
 
 ## Close-Out
+
 - [ ] Every proof passes.
 
 ## Notes
+
 Free text. Tools never parse it.
 ```
 
 Task line grammar:
 
-- A checkbox, an id, the task text, then ` — ` separated `key: value` fields.
-- `proof` is required. It names a scenario in this change's `spec.
+- A checkbox, an id, the task text, then `—` separated `key: value` fields.
+- `proof` is required. It names a scenario in this change's `spec.md`, or a path in the repo
   with an optional `::<name>` suffix.
 - Any other field is allowed and preserved. OnlyPlans ignores it.
 - Ids are unique and ascending by their numeric parts.
@@ -79,22 +86,21 @@ Task line grammar:
 ## 6. The tool
 
 One file, no dependencies, published as the npm package `onlyplans` with the bin `onlyplans`.
-Node is already present wherever Claude Code or OpenSpec runs, so
+Node is already present wherever Claude Code or OpenSpec runs, so it adds no runtime.
 
 - Exit 0 on success.
-- Every error is one line: what failed, `file:line` where, and wha
+- Every error is one line: what failed, `file:line` where, and what to do.
 - The tool never commits, branches, or writes outside `docs/changes/`. Callers own git.
 
-| Command | Does |
-|---|---|
-| `onlyplans init` | Creates `docs/changes/` and `docs/changes/archive/`, each with a `.gitkeep`. Idempotent. |
-| `onlyplans new <id>` | Creates the folder from the two templatesfuses if the id exists, active or archived. |
-| `onlyplans list [--json]` | Active changes with task counts: `{id, total, done}`. |
-| `onlyplans tasks <id> [--json]` | The parsed task lines: `{id, tds` holds every `key: value` on the line. |
-| `onlyplans criteria <id> <task>` | Prints the scenario blocks the task's proof names, verbatim. Errors on a missing scenario. A path proof prints the path. |
-| `onlyplans validate <id> [--strict]` | Runs the rules for both files. Prints `PASS`, or one finding per line. `--strict` adds: every requirement is named as
-proof by at least one task, and lines are under 100 columns. |
-| `onlyplans archive <id> [--date YYYY-MM-DD] [--force]` | Refuses while a task is unchecked and names the ids, unless `--force`. Moves the folder to `archive/<date>-<id>/`. Refuses if the target exists. Does not touch git. |
+| Command                                                | Does                                                                                                                                                                               |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `onlyplans init`                                       | Creates `docs/changes/` and `docs/changes/archive/`, each with a `.gitkeep`. Idempotent.                                                                                           |
+| `onlyplans new <id>`                                   | Creates the folder from the two templates with `<id>` filled in. Refuses if the id exists, active or archived.                                                                     |
+| `onlyplans list [--json]`                              | Active changes with task counts: `{id, total, done}`.                                                                                                                              |
+| `onlyplans tasks <id> [--json]`                        | The parsed task lines: `{id, text, done, fields}`. `fields` holds every `key: value` on the line.                                                                                  |
+| `onlyplans criteria <id> <task>`                       | Prints the scenario blocks the task's proof names, verbatim. Errors on a missing scenario. A path proof prints the path.                                                           |
+| `onlyplans validate <id> [--strict]`                   | Runs the rules for both files. Prints `PASS`, or one finding per line. `--strict` adds: every requirement is named as proof by at least one task, and lines are under 100 columns. |
+| `onlyplans archive <id> [--date YYYY-MM-DD] [--force]` | Refuses while a task is unchecked and names the ids, unless `--force`. Moves the folder to `archive/<date>-<id>/`. Refuses if the target exists. Does not touch git.               |
 
 ## 7. Templates
 
@@ -134,12 +140,12 @@ The rule set is sections 4 and 5, plus:
 A new repo, `only-plans`:
 
 ```
-package.json        # name onlyplans, version, bin, files, engineses
+package.json        # name onlyplans, version, bin, files, engines.node >= 24, no dependencies
 bin/onlyplans.js
 templates/spec.md
 templates/plan.md
 test/
-README.md           # one screen: the layout, the task grammar, th
+README.md           # one screen: the layout, the task grammar, the seven commands
 LICENSE             # MIT
 CHANGELOG.md
 ```
@@ -155,7 +161,7 @@ Constraints:
 How only-orchestrator will use it:
 
 - The provider adapter maps `create` to `new`, `tasks` to `tasks --json`, `criteria` to
-  `criteria`, `validate` to `validate --strict`, and `close` to wr
+  `criteria`, `validate` to `validate --strict`, and `close` to writing its retro into
   `## Notes` from its own ledger in `.oo/`, then `archive`.
 - The orchestrator adds `kind`, `files`, and `independent` fields to task lines. OnlyPlans
   never reads them.
