@@ -2,7 +2,9 @@
 // @ts-check
 "use strict";
 
+const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const CHANGES_DIR = path.join("docs", "changes");
@@ -34,15 +36,26 @@ const USAGE = `usage: onlyplans <command> [args]
   validate <id> [--strict]                   check both files, print PASS or findings
   archive <id> [--date YYYY-MM-DD] [--force] move a finished change to the archive
   completion <zsh|bash|powershell>           print a tab-completion script for the shell
+  --tabcomplete <zsh|bash|powershell>        add tab completion to your shell profile
 
 <id> may also be given as a path, such as docs/changes/<id>/.`;
 
 const COMPLETE = "__complete";
+const TABCOMPLETE = "--tabcomplete";
+const PROFILE_MARK = "# onlyplans tab completion";
+
+/** The line --tabcomplete appends to the profile, which loads the script on every new shell. */
+const PROFILE_LINES = {
+  zsh: 'eval "$(onlyplans completion zsh)"',
+  bash: 'eval "$(onlyplans completion bash)"',
+  powershell: "onlyplans completion powershell | Out-String | Invoke-Expression",
+};
 
 /** Each script hands the words typed so far to `onlyplans __complete` and lists what it prints. */
 const SHELL_SCRIPTS = {
   zsh: [
     "#compdef onlyplans",
+    "(( $+functions[compdef] )) || { autoload -Uz compinit && compinit; }",
     "_onlyplans() {",
     "  local -a candidates",
     '  candidates=(${(f)"$(onlyplans ' + COMPLETE + ' "${words[@]:1}" 2>/dev/null)"})',
@@ -733,13 +746,54 @@ function archive(ctx) {
 }
 
 /** @param {Ctx} ctx */
+/** @param {string | undefined} shell @returns {keyof SHELL_SCRIPTS} */
+function requireShell(shell) {
+  if (shell && shell in SHELL_SCRIPTS) return /** @type {keyof SHELL_SCRIPTS} */ (shell);
+  throw new CliError(`${shell ?? "<shell>"}: unknown shell — use zsh, bash, or powershell`, EXIT.usage);
+}
+
+/** @param {Ctx} ctx */
 function completion(ctx) {
-  const [shell] = ctx.positional;
-  const script = SHELL_SCRIPTS[/** @type {keyof SHELL_SCRIPTS} */ (shell)];
-  if (!script) {
-    throw new CliError(`${shell}: unknown shell — use zsh, bash, or powershell`, EXIT.usage);
+  print(SHELL_SCRIPTS[requireShell(ctx.positional[0])].join("\n"));
+}
+
+/** Asks PowerShell for $PROFILE, since it is not an environment variable. */
+function powershellProfile() {
+  for (const exe of ["pwsh", "powershell"]) {
+    const result = spawnSync(exe, ["-NoProfile", "-Command", "$PROFILE"], { encoding: "utf8" });
+    if (result.status === 0 && result.stdout.trim()) return result.stdout.trim();
   }
-  print(script.join("\n"));
+  throw new CliError(
+    "pwsh: not found — add this line to your PowerShell $PROFILE by hand:" +
+      ` ${PROFILE_LINES.powershell}`,
+  );
+}
+
+/** @param {keyof SHELL_SCRIPTS} shell */
+function profilePath(shell) {
+  const home = os.homedir();
+  if (shell === "zsh") return path.join(process.env.ZDOTDIR || home, ".zshrc");
+  if (shell === "bash") {
+    return path.join(home, process.platform === "darwin" ? ".bash_profile" : ".bashrc");
+  }
+  return powershellProfile();
+}
+
+/** @param {string} shell */
+function tabcomplete(shell) {
+  const name = requireShell(shell);
+  const profile = profilePath(name);
+  const line = `${PROFILE_LINES[name]}  ${PROFILE_MARK}`;
+  const existing = fs.existsSync(profile) ? fs.readFileSync(profile, "utf8") : "";
+  if (existing.includes(PROFILE_LINES[name])) {
+    print(`${profile}: already loads onlyplans completion`);
+    return EXIT.ok;
+  }
+  fs.mkdirSync(path.dirname(profile), { recursive: true });
+  const separator = existing && !existing.endsWith("\n") ? "\n" : "";
+  fs.appendFileSync(profile, `${separator}${line}\n`);
+  print(`${profile}: added "${PROFILE_LINES[name]}". Open a new shell to use it.`);
+  return EXIT.ok;
 }
 
 /** @param {string} cwd */
@@ -837,6 +891,7 @@ function usageError(message) {
 /** @param {string[]} argv */
 function main(argv) {
   if (argv[0] === COMPLETE) return complete(process.cwd(), argv.slice(1));
+  if (argv[0] === TABCOMPLETE) return runCli(() => tabcomplete(argv[1]));
   const {
     positional: [name, ...positional],
     flags,
@@ -852,8 +907,14 @@ function main(argv) {
   }
   const unknown = Object.keys(flags).find((flag) => !command.flags.includes(flag));
   if (unknown) return usageError(`${name} does not take --${unknown}`);
+  return runCli(() => command.run({ cwd: process.cwd(), positional, flags }));
+}
+
+/** Runs one command, turning a CliError into one stderr line and its exit code.
+ * @param {() => number | void} action */
+function runCli(action) {
   try {
-    return command.run({ cwd: process.cwd(), positional, flags }) ?? EXIT.ok;
+    return action() ?? EXIT.ok;
   } catch (error) {
     if (!(error instanceof CliError)) throw error;
     process.stderr.write(`${error.message}\n`);
