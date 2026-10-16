@@ -32,4 +32,4 @@ function fixtureFile(name, file) {
   return fs.readFileSync(path.join(FIXTURES, name, "docs", "changes", ID, file), "utf8");
 }
 
-module.exports = { ID, copyFixture, run, runIn, fixtureFile };
+module.exports = { BIN, ID, copyFixture, run, runIn, fixtureFile };

@@ -6,9 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
-const { ID, copyFixture, run, runIn } = require("./helpers");
-
-const BIN = path.join(__dirname, "..", "bin", "onlyplans.js");
+const { BIN, ID, copyFixture, run, runIn } = require("./helpers");
 const CHANGE_PATH = `docs/changes/${ID}`;
 
 /** A PATH whose first entry holds an `onlyplans` command that runs this checkout. */

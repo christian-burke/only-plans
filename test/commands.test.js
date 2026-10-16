@@ -1,10 +1,11 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const { test } = require("node:test");
-const { ID, copyFixture, run, fixtureFile } = require("./helpers");
+const { BIN, ID, copyFixture, run, fixtureFile } = require("./helpers");
 
 const AGENTS_MARKERS = ["<!-- onlyplans:start -->", "<!-- onlyplans:end -->"];
 
@@ -228,4 +229,12 @@ test("criteria on a task without a proof fails at the task line", () => {
   assert.equal(result.status, 1);
   const expected = /^docs\/changes\/add-login\/plan\.md:6: task 1\.2 has no proof — /;
   assert.match(result.stderr, expected);
+});
+
+test("a consumer that closes the pipe early gets no stack trace", () => {
+  const cwd = copyFixture("strict-placeholder");
+  const script = `"${process.execPath}" "${BIN}" validate ${ID} --strict | true`;
+  const result = spawnSync("bash", ["-c", script], { cwd, encoding: "utf8" });
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
 });
