@@ -803,19 +803,26 @@ function profilePath(shell) {
  * @returns {"added" | "updated" | "unchanged"}
  */
 function upsertBlock(file, [begin, end], body) {
-  const block = `${begin}\n${body}\n${end}`;
   const existing = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  const eol = existing.includes("\r\n") ? "\r\n" : "\n";
+  const block = [begin, ...body.split("\n"), end].join(eol);
   const start = existing.indexOf(begin);
   const stop = existing.indexOf(end, start);
-  if (start >= 0 && stop >= 0) {
+  if (start >= 0 !== stop >= 0) {
+    throw new CliError(
+      `${file}: has one of "${begin}" and "${end}" without the other` +
+        " — restore both markers or delete the block",
+    );
+  }
+  if (start >= 0) {
     const current = existing.slice(start, stop + end.length);
     if (current === block) return "unchanged";
     fs.writeFileSync(file, existing.slice(0, start) + block + existing.slice(stop + end.length));
     return "updated";
   }
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  const separator = !existing ? "" : existing.endsWith("\n") ? "\n" : "\n\n";
-  fs.appendFileSync(file, `${separator}${block}\n`);
+  const separator = !existing ? "" : existing.endsWith("\n") ? eol : eol + eol;
+  fs.appendFileSync(file, `${separator}${block}${eol}`);
   return "added";
 }
 

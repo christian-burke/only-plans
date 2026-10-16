@@ -51,6 +51,32 @@ test("init appends to an existing AGENTS.md and repairs a changed section", () =
   assert.equal(agentsText(cwd), good);
 });
 
+test("init refuses an AGENTS.md with a lone marker and leaves it alone", () => {
+  for (const marker of AGENTS_MARKERS) {
+    const cwd = freshDir();
+    const text = `# Rules\n\n${marker}\nold\n\n## Keep me\n`;
+    fs.writeFileSync(path.join(cwd, "AGENTS.md"), text);
+    const result = run(cwd, "init");
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /AGENTS\.md: has one of .* without the other — restore both/);
+    assert.equal(agentsText(cwd), text);
+  }
+});
+
+test("init keeps the line endings of a CRLF AGENTS.md", () => {
+  const cwd = freshDir();
+  fs.writeFileSync(path.join(cwd, "AGENTS.md"), "# Rules\r\n\r\n- Be brief.\r\n");
+  assert.equal(run(cwd, "init").status, 0);
+  const text = agentsText(cwd);
+  assert.ok(
+    text.split("\r\n").every((line) => !line.includes("\n")),
+    "found a bare LF",
+  );
+  assert.match(text, /\r\n<!-- onlyplans:end -->\r\n$/);
+  assert.match(run(cwd, "init").stdout, /^AGENTS\.md: unchanged onlyplans section$/m);
+  assert.equal(agentsText(cwd), text);
+});
+
 test("init --no-agents leaves AGENTS.md alone", () => {
   const cwd = freshDir();
   assert.equal(run(cwd, "init", "--no-agents").status, 0);
