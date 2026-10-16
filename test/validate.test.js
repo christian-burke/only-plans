@@ -55,6 +55,7 @@ const STRICT_FAILURES = [
     'spec.md:25: requirement "Session" is not the proof of any task',
   ],
   ["strict-wide-line", "spec.md:23: line is 105 columns"],
+  ["strict-placeholder", "spec.md:5: unresolved placeholder"],
 ];
 
 for (const [fixture, expected] of STRICT_FAILURES) {

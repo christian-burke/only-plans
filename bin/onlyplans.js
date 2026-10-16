@@ -13,6 +13,7 @@ const TEMPLATES_DIR = path.join(__dirname, "..", "templates");
 const SPEC = "spec.md";
 const PLAN = "plan.md";
 const MAX_COLUMNS = 100;
+const PLACEHOLDER = "<replace me>";
 const EXIT = { ok: 0, fail: 1, usage: 2 };
 
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -51,21 +52,27 @@ const AGENTS_BLOCK = [
   "## OnlyPlans",
   "",
   "Changes live in `docs/changes/<id>/` as `spec.md` and `plan.md`. Finished changes move to",
-  "`docs/changes/archive/`. Run `onlyplans --help` for all commands.",
+  "`docs/changes/archive/`. `onlyplans list` shows the active changes. Run `onlyplans --help`",
+  "for all commands.",
   "",
   "Work a change in this order:",
   "",
-  "1. `onlyplans new <id>` creates the folder. Fill `spec.md` with requirements and",
-  "   scenarios, and `plan.md` with tasks. Each task names a proof: a scenario from",
-  "   `spec.md` or a test path.",
-  "2. `onlyplans validate <id> --strict` must print `PASS` before any task starts.",
+  "1. `onlyplans new <id>` creates the folder from the templates. The id is lowercase words",
+  "   joined by dashes. Replace every `<replace me>` in both files.",
+  "2. `onlyplans validate <id> --strict` must print `PASS` before any task starts. Otherwise it",
+  "   prints one finding per line as `file:line: what — fix`.",
   "3. `onlyplans tasks <id> --json` lists the tasks. `onlyplans criteria <id> <task>` prints the",
   "   scenario a task must satisfy.",
   "4. Do one task, make its proof pass, then check its box in `plan.md`.",
   "5. `onlyplans archive <id>` when every box is checked. Never edit `docs/changes/archive/`.",
   "",
-  "Task line grammar: `- [ ] 1.1 <task> — proof: <Scenario name>`. Extra `key: value` fields",
-  "are allowed and kept.",
+  "`spec.md` holds `## Why` and `## Requirements`. Each `### Requirement:` says SHALL and has",
+  "one or more `#### Scenario:` blocks with GIVEN, WHEN, and THEN lines, in that order.",
+  "",
+  "`plan.md` holds `## Tasks`, `## Close-Out`, and `## Notes`. A task line is",
+  "`- [ ] 1.1 <task> — proof: <Scenario name>`. The proof names a scenario in `spec.md` or a",
+  "path from the repo root; a proof with `/` or `::` is a path. Extra `key: value` fields are",
+  "allowed and kept. Ids ascend. Only `[x]` counts as done.",
 ].join("\n");
 
 /** The completion script shipped for each shell, and the profile line that loads it. */
@@ -456,21 +463,33 @@ function strictFindings(spec, plan) {
       );
     }
   }
-  return [...out, ...widthFindings(SPEC, spec.lines), ...widthFindings(PLAN, plan.lines)];
+  return [...out, ...lineFindings(SPEC, spec.lines), ...lineFindings(PLAN, plan.lines)];
 }
 
+/**
+ * Line-level checks that strict mode applies to both files.
+ * @type {Array<{ test: (text: string) => boolean, what: (text: string) => string, fix: string }>}
+ */
+const LINE_RULES = [
+  {
+    test: (text) => text.length >= MAX_COLUMNS,
+    what: (text) => `line is ${text.length} columns`,
+    fix: `keep lines under ${MAX_COLUMNS}`,
+  },
+  {
+    test: (text) => text.includes(PLACEHOLDER),
+    what: () => "unresolved placeholder",
+    fix: `replace or remove "${PLACEHOLDER}"`,
+  },
+];
+
 /** @param {string} file @param {Line[]} lines */
-function widthFindings(file, lines) {
-  return lines
-    .filter((line) => line.text.length >= MAX_COLUMNS)
-    .map((line) =>
-      finding(
-        file,
-        line.n,
-        `line is ${line.text.length} columns`,
-        `keep lines under ${MAX_COLUMNS}`,
-      ),
-    );
+function lineFindings(file, lines) {
+  return lines.flatMap((line) =>
+    LINE_RULES.filter((rule) => rule.test(line.text)).map((rule) =>
+      finding(file, line.n, rule.what(line.text), rule.fix),
+    ),
+  );
 }
 
 /** @param {string} id */

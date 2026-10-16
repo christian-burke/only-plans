@@ -66,12 +66,19 @@ test("init refuses when a root exists above", () => {
   assert.ok(!fs.existsSync(path.join(sub, "docs")));
 });
 
-test("new creates a change that validates, and twice fails", () => {
+test("new creates a change that validates until --strict, and twice fails", () => {
   const cwd = copyFixture("pass");
   assert.equal(run(cwd, "new", "fix-logout").status, 0);
   const spec = fs.readFileSync(path.join(cwd, "docs/changes/fix-logout/spec.md"), "utf8");
   assert.match(spec, /^# fix-logout — fix logout$/m);
   assert.equal(run(cwd, "validate", "fix-logout").stdout, "PASS\n");
+  const strict = run(cwd, "validate", "fix-logout", "--strict");
+  assert.equal(strict.status, 1);
+  assert.match(
+    strict.stdout,
+    /spec\.md:5: unresolved placeholder — replace or remove "<replace me>"$/m,
+  );
+  assert.match(strict.stdout, /plan\.md:5: unresolved placeholder/);
   const again = run(cwd, "new", "fix-logout");
   assert.equal(again.status, 1);
   assert.match(again.stderr, /^docs\/changes\/fix-logout: already exists/);
