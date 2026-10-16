@@ -48,8 +48,9 @@ or `::` is a path. Other fields are kept and ignored. Ids ascend. Only `[x]` cou
 
 `<id>` may also be given as a path, such as `docs/changes/add-login/`.
 
-Exit 0 on success, 1 on a finding or refusal, 2 on bad usage. The tool never touches git and
-never writes outside `docs/changes/`.
+Exit 0 on success, 1 on a finding or refusal, 2 on bad usage. The tool never touches git.
+Outside `docs/changes/` it writes only the `AGENTS.md` section from `init` and the profile
+block from `setup`.
 
 ## Tab completion
 

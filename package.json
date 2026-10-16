@@ -3,6 +3,13 @@
   "version": "0.1.0",
   "description": "A minimal spec-driven change record: one folder, a spec, a plan, an archive.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/christian-burke/only-plans.git"
+  },
+  "bugs": {
+    "url": "https://github.com/christian-burke/only-plans/issues"
+  },
   "bin": {
     "onlyplans": "bin/onlyplans.js"
   },
