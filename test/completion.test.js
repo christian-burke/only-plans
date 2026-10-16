@@ -287,8 +287,10 @@ test(
       const command =
         `. '${script}'; (TabExpansion2 -inputScript '${line}' -cursorColumn ${line.length})` +
         ".CompletionMatches.CompletionText";
+      // Encoded, so Windows command-line parsing cannot eat the trailing space in the input.
+      const encoded = Buffer.from(command, "utf16le").toString("base64");
       const options = { cwd, encoding: "utf8", env: envWithBin() };
-      const result = spawnSync(PWSH, ["-NoProfile", "-Command", command], options);
+      const result = spawnSync(PWSH, ["-NoProfile", "-EncodedCommand", encoded], options);
       assert.equal(result.status, 0, result.stderr);
       return result.stdout.split(/\r?\n/).filter(Boolean);
     };
