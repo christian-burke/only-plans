@@ -9,8 +9,6 @@ jobs:
   test:
     name: test (${{ matrix.os }}, node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
-    # Windows reports without blocking until the suite's shell and path assumptions are fixed.
-    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     strategy:
       fail-fast: false
       matrix:

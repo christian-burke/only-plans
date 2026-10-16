@@ -17,7 +17,7 @@ const PWSH = ["pwsh", "powershell"].find(
   (exe) => spawnSync(exe, ["-NoProfile", "-Command", "1"], { stdio: "ignore" }).status === 0,
 );
 
-/** An environment whose PATH starts with an `onlyplans` command that runs this checkout, and node. */
+/** An environment whose PATH starts with an `onlyplans` command for this checkout, then node. */
 function envWithBin() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "onlyplans-bin-"));
   if (WINDOWS) {
