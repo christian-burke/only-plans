@@ -83,6 +83,8 @@ fields are kept and ignored. Ids ascend. Only `[x]` counts as done.
 
 - `onlyplans init [--no-agents]`: creates `docs/changes/` and `docs/changes/archive/`, and
   adds a short OnlyPlans section to `AGENTS.md` so agents learn the commands. Idempotent.
+  Pass `--no-agents` when something else already teaches agents the tool, such as an
+  orchestrator's skill, so the section does not cost tokens on every session.
 - `onlyplans new <id>`: creates the change from the templates. Refuses a used id.
 - `onlyplans list [--json]`: active changes with task counts.
 - `onlyplans tasks <id> [--json]`: the parsed task lines. JSON rows carry `id`, `text`, `done`,

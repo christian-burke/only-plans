@@ -156,6 +156,8 @@ Out of this repo's scope. Record what the adapter can rely on:
 - Stable surface: `new`, `tasks --json`, `criteria`, `validate --strict`, `archive`.
 - Unknown task fields (`kind`, `files`, `independent`) pass through `tasks --json` untouched.
 - `## Notes` is free text. The adapter may overwrite it before `archive`.
+- The adapter runs `init --no-agents`. Its provider skill carries the same guidance as the
+  `AGENTS.md` section, so writing both would cost tokens on every session for nothing.
 
 ## 10. `init --no-agents`
 
