@@ -996,10 +996,12 @@ function main(argv) {
   }
 }
 
-// A consumer such as `head` may close the pipe early. That is not an error worth a stack trace.
-process.stdout.on("error", (error) => {
-  if (error.code !== "EPIPE") throw error;
-  process.exit();
-});
+// A consumer such as `head` may close a pipe early. That is not an error worth a stack trace.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on("error", (error) => {
+    if (error.code !== "EPIPE") throw error;
+    process.exit();
+  });
+}
 
 process.exitCode = main(process.argv.slice(2));

@@ -231,10 +231,20 @@ test("criteria on a task without a proof fails at the task line", () => {
   assert.match(result.stderr, expected);
 });
 
-test("a consumer that closes the pipe early gets no stack trace", () => {
-  const cwd = copyFixture("strict-placeholder");
-  const script = `"${process.execPath}" "${BIN}" validate ${ID} --strict | true`;
-  const result = spawnSync("bash", ["-c", script], { cwd, encoding: "utf8" });
-  assert.equal(result.status, 0);
+/** Runs the bin with both streams piped into a consumer that exits at once; returns its status. */
+function statusIntoClosedPipe(cwd, ...args) {
+  const script = `"${process.execPath}" "${BIN}" ${args.join(" ")} 2>&1 | true`;
+  const result = spawnSync("bash", ["-c", `${script}; exit \${PIPESTATUS[0]}`], {
+    cwd,
+    encoding: "utf8",
+  });
   assert.equal(result.stderr, "");
+  return result.status;
+}
+
+test("a consumer that closes the pipe early gets no stack trace and the usual exit code", () => {
+  const cwd = copyFixture("strict-placeholder");
+  assert.equal(statusIntoClosedPipe(cwd, "validate", ID, "--strict"), 1);
+  assert.equal(statusIntoClosedPipe(cwd, "bogus"), 2);
+  assert.equal(statusIntoClosedPipe(cwd, "tasks", ID), 0);
 });
