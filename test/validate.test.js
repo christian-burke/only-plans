@@ -68,7 +68,7 @@ const STRICT_FAILURES = [
     "strict-unproven-requirement",
     'spec.md:25: requirement "Session" is not the proof of any task',
   ],
-  ["strict-wide-line", "spec.md:23: line is 105 columns"],
+  ["strict-wide-line", "spec.md:23: line is 105 characters"],
   ["strict-placeholder", "spec.md:5: unresolved placeholder"],
 ];
 

@@ -77,7 +77,8 @@ Free text. Tools never parse it.
 
 Task line grammar:
 
-- A checkbox, an id, the task text, then `—` separated `key: value` fields.
+- A checkbox, an id, the task text, then `key: value` fields, each introduced by `—`. A
+  `—` not followed by `key:` is part of the task text.
 - `proof` is required. It names a scenario in this change's `spec.md`, or a path in the repo
   with an optional `::<name>` suffix.
 - Any other field is allowed and preserved. OnlyPlans ignores it.
@@ -100,9 +101,9 @@ Node is already present wherever Claude Code or OpenSpec runs, so it adds no run
 | `onlyplans init [--no-agents]`                         | Creates `docs/changes/` and `docs/changes/archive/`, each with a `.gitkeep`, and upserts a marked section into `AGENTS.md` at the root. `--no-agents` skips the section. Idempotent.      |
 | `onlyplans new <id>`                                   | Creates the folder from the two templates with `<id>` filled in. Refuses if the id exists, active or archived.                                                                            |
 | `onlyplans list [--json]`                              | Active changes with task counts: `{id, total, done}`.                                                                                                                                     |
-| `onlyplans tasks <id> [--json]`                        | The parsed task lines: `{id, text, done, fields}`. `fields` holds every `key: value` on the line.                                                                                         |
+| `onlyplans tasks <id> [--json]`                        | The parsed task lines: `{id, text, done, fields, line}`. `fields` holds every `key: value` on the line.                                                                                   |
 | `onlyplans criteria <id> <task>`                       | Prints the scenario blocks the task's proof names, verbatim. Errors on a missing scenario. A path proof prints the path.                                                                  |
-| `onlyplans validate <id> [--strict]`                   | Runs the rules for both files. Prints `PASS`, or one finding per line. `--strict` adds: every requirement is named as proof by at least one task, and lines are under 100 columns.        |
+| `onlyplans validate <id> [--strict]`                   | Runs the rules for both files. Prints `PASS`, or one finding per line. `--strict` adds: every requirement is named as proof by at least one task, and lines are under 100 characters.     |
 | `onlyplans archive <id> [--date YYYY-MM-DD] [--force]` | Refuses while a task is unchecked and names the ids, unless `--force`. Moves the folder to `archive/<date>-<id>/`. Refuses if the target exists. Does not touch git.                      |
 | `onlyplans setup --tabcomplete <shell>`                | Upserts a marked block into the profile of `zsh`, `bash`, or `powershell` that sources the completion script shipped in `completion/`. The script asks the tool for candidates and hints. |
 

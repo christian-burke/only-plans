@@ -74,17 +74,21 @@ one or more `#### Scenario:` blocks with GIVEN, WHEN, and THEN lines, in that or
 - [x] 1.2 <task> — proof: tests/test_x.py::test_y — kind: api
 ```
 
-A checkbox, an id, the task text, then `—` separated `key: value` fields. `proof` is
-required and names a scenario in `spec.md`, or a path from the repo root. A proof with `/`
-or `::` is a path. Other fields are kept and ignored. Ids ascend. Only `[x]` counts as done.
+A checkbox, an id, the task text, then `key: value` fields, each introduced by `—`. A `—`
+that is not followed by `key:` is part of the task text. `proof` is required and names a
+scenario in `spec.md`, or a path from the repo root. A proof with `/` or `::` is a path. Other
+fields are kept and ignored. Ids ascend. Only `[x]` counts as done.
 
 ## OnlyPlans Commands
 
 - `onlyplans init [--no-agents]`: creates `docs/changes/` and `docs/changes/archive/`, and
   adds a short OnlyPlans section to `AGENTS.md` so agents learn the commands. Idempotent.
+  Pass `--no-agents` when something else already teaches agents the tool, such as an
+  orchestrator's skill, so the section does not cost tokens on every session.
 - `onlyplans new <id>`: creates the change from the templates. Refuses a used id.
 - `onlyplans list [--json]`: active changes with task counts.
-- `onlyplans tasks <id> [--json]`: the parsed task lines.
+- `onlyplans tasks <id> [--json]`: the parsed task lines. JSON rows carry `id`, `text`, `done`,
+  `fields`, and `line`.
 - `onlyplans criteria <id> <task>`: the scenario the task's proof names, verbatim.
 - `onlyplans validate <id> [--strict]`: `PASS`, or one finding per line as `file:line`.
 - `onlyplans archive <id> [--date D] [--force]`: moves the change to the archive.
@@ -93,7 +97,7 @@ or `::` is a path. Other fields are kept and ignored. Ids ascend. Only `[x]` cou
 `<id>` may also be given as a path, such as `docs/changes/add-login/`.
 
 `--strict` also requires that every requirement is the proof of some task, that no line
-reaches 100 columns, and that no `<replace me>` from the templates is left in either file.
+reaches 100 characters, and that no `<replace me>` from the templates is left in either file.
 
 Exit 0 on success, 1 on a finding or refusal, 2 on bad usage. The tool never touches git.
 Outside `docs/changes/` it writes only the `AGENTS.md` section from `init` and the profile

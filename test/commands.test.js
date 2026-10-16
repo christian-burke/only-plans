@@ -137,8 +137,18 @@ test("tasks --json preserves unknown fields", () => {
     text: "Build the form",
     done: true,
     fields: { proof: "Form renders", kind: "ui" },
+    line: 5,
   });
   assert.deepEqual(rows[3].fields, { proof: "test/login.test.js::rejects" });
+});
+
+test("a dash in the task text stays in the text and the task still counts", () => {
+  const cwd = copyFixture("task-prose-dash");
+  const rows = JSON.parse(run(cwd, "tasks", ID, "--json").stdout);
+  assert.equal(rows[1].text, "Reject bad passwords — the old check was wrong");
+  assert.deepEqual(rows[1].fields, { proof: "Bad password" });
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  assert.equal(run(cwd, "list").stdout, `${ID} 1/4\n`);
 });
 
 test("tasks prints the raw task lines as text", () => {
@@ -218,6 +228,12 @@ test("usage errors exit 2 and print usage", () => {
   }
   assert.equal(run(cwd).status, 0);
   assert.match(run(cwd).stdout, /^usage: onlyplans/);
+});
+
+test("--version prints the package version", () => {
+  const result = run(copyFixture("pass"), "--version");
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout, `${require("../package.json").version}\n`);
 });
 
 test("an unknown change is one line on stderr with exit 1", () => {

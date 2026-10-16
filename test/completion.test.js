@@ -61,7 +61,21 @@ test("a path that is not a change folder is a usage error", () => {
 });
 
 const CANDIDATES = [
-  [[], ["init", "new", "list", "tasks", "criteria", "validate", "archive", "setup", "--help"]],
+  [
+    [],
+    [
+      "init",
+      "new",
+      "list",
+      "tasks",
+      "criteria",
+      "validate",
+      "archive",
+      "setup",
+      "--help",
+      "--version",
+    ],
+  ],
   [["ta"], ["tasks"]],
   [["tasks", ""], [ID]],
   [["tasks", "add"], [ID]],
