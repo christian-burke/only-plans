@@ -6,13 +6,55 @@ const path = require("node:path");
 const { test } = require("node:test");
 const { ID, copyFixture, run, fixtureFile } = require("./helpers");
 
+const AGENTS_MARKERS = ["<!-- onlyplans:start -->", "<!-- onlyplans:end -->"];
+
+function freshDir() {
+  return fs.mkdtempSync(path.join(require("node:os").tmpdir(), "onlyplans-init-"));
+}
+
+function agentsText(cwd) {
+  return fs.readFileSync(path.join(cwd, "AGENTS.md"), "utf8");
+}
+
 test("init creates both folders with .gitkeep and is idempotent", () => {
-  const cwd = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "onlyplans-init-"));
+  const cwd = freshDir();
   for (let i = 0; i < 2; i++) {
     assert.equal(run(cwd, "init").status, 0);
     assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", ".gitkeep")));
     assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", "archive", ".gitkeep")));
   }
+});
+
+test("init creates AGENTS.md with the onlyplans section, then reports unchanged", () => {
+  const cwd = freshDir();
+  const first = run(cwd, "init");
+  assert.match(first.stdout, /^AGENTS\.md: added onlyplans section$/m);
+  const text = agentsText(cwd);
+  assert.match(text, /^<!-- onlyplans:start -->\n## OnlyPlans\n/);
+  assert.match(text, /onlyplans archive <id>/);
+  assert.match(text, /\n<!-- onlyplans:end -->\n$/);
+  assert.match(run(cwd, "init").stdout, /^AGENTS\.md: unchanged onlyplans section$/m);
+  assert.equal(agentsText(cwd), text);
+});
+
+test("init appends to an existing AGENTS.md and repairs a changed section", () => {
+  const cwd = freshDir();
+  fs.writeFileSync(path.join(cwd, "AGENTS.md"), "## Rules\n\n- Be brief.\n");
+  run(cwd, "init");
+  fs.appendFileSync(path.join(cwd, "AGENTS.md"), "\n## After\n");
+  const good = agentsText(cwd);
+  assert.match(good, /^## Rules\n\n- Be brief\.\n\n<!-- onlyplans:start -->\n/);
+  assert.match(good, /<!-- onlyplans:end -->\n\n## After\n$/);
+  fs.writeFileSync(path.join(cwd, "AGENTS.md"), good.replace("--strict", "--loose"));
+  assert.match(run(cwd, "init").stdout, /^AGENTS\.md: updated onlyplans section$/m);
+  assert.equal(agentsText(cwd), good);
+});
+
+test("init --no-agents leaves AGENTS.md alone", () => {
+  const cwd = freshDir();
+  assert.equal(run(cwd, "init", "--no-agents").status, 0);
+  assert.ok(!fs.existsSync(path.join(cwd, "AGENTS.md")));
+  assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", "archive")));
 });
 
 test("init refuses when a root exists above", () => {
@@ -148,4 +190,35 @@ test("an unknown change is one line on stderr with exit 1", () => {
   const result = run(copyFixture("pass"), "validate", "nope");
   assert.equal(result.status, 1);
   assert.equal(result.stderr, "docs/changes/nope: no such change — run onlyplans list\n");
+});
+
+test("any command outside a root fails in one line that points at init", () => {
+  const cwd = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "onlyplans-noroot-"));
+  const result = run(cwd, "list");
+  assert.equal(result.status, 1);
+  const expected = /^docs\/changes: not found in \S+ or above — run onlyplans init\n$/;
+  assert.match(result.stderr, expected);
+});
+
+test("tasks on a change without plan.md fails with the missing-file finding", () => {
+  const result = run(copyFixture("missing-plan"), "tasks", ID);
+  assert.equal(result.status, 1);
+  const expected = "docs/changes/add-login/plan.md:1: file is missing — add plan.md\n";
+  assert.equal(result.stderr, expected);
+});
+
+test("archive without --date uses today", () => {
+  const cwd = copyFixture("unchecked-none");
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  assert.equal(run(cwd, "archive", ID).stdout, `docs/changes/archive/${today}-${ID}/\n`);
+  assert.ok(fs.existsSync(path.join(cwd, "docs/changes/archive", `${today}-${ID}`, "spec.md")));
+});
+
+test("criteria on a task without a proof fails at the task line", () => {
+  const result = run(copyFixture("task-no-proof"), "criteria", ID, "1.2");
+  assert.equal(result.status, 1);
+  const expected = /^docs\/changes\/add-login\/plan\.md:6: task 1\.2 has no proof — /;
+  assert.match(result.stderr, expected);
 });

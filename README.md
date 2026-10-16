@@ -36,7 +36,8 @@ or `::` is a path. Other fields are kept and ignored. Ids ascend. Only `[x]` cou
 
 ## Commands
 
-- `onlyplans init`: creates `docs/changes/` and `docs/changes/archive/`. Idempotent.
+- `onlyplans init [--no-agents]`: creates `docs/changes/` and `docs/changes/archive/`, and
+  adds a short OnlyPlans section to `AGENTS.md` so agents learn the commands. Idempotent.
 - `onlyplans new <id>`: creates the change from the templates. Refuses a used id.
 - `onlyplans list [--json]`: active changes with task counts.
 - `onlyplans tasks <id> [--json]`: the parsed task lines.

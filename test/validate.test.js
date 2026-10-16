@@ -23,6 +23,7 @@ const FAILURES = [
   ["missing-plan", "plan.md:1: file is missing"],
   ["spec-title-id", 'spec.md:1: title id "other" does not match folder'],
   ["plan-title-id", 'plan.md:1: title id "other" does not match folder'],
+  ["plan-title-word", 'plan.md:1: title is "Roadmap"'],
   ["spec-missing-section", 'spec.md:1: missing section "## Why"'],
   ["plan-missing-section", 'plan.md:1: missing section "## Tasks"'],
   ["requirement-no-scenario", 'spec.md:25: requirement "Session" has no scenario'],
