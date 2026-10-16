@@ -13,7 +13,7 @@ const ARCHIVE_DIR = "archive";
 const TEMPLATES_DIR = path.join(__dirname, "..", "templates");
 const SPEC = "spec.md";
 const PLAN = "plan.md";
-const MAX_COLUMNS = 100;
+const MAX_CHARS = 100;
 const PLACEHOLDER = "<replace me>";
 const EXIT = { ok: 0, fail: 1, usage: 2 };
 
@@ -25,7 +25,8 @@ const HEADING = /^(#{1,6}) (.*)$/;
 const STEP = /^- (GIVEN|WHEN|THEN)\b/;
 const TASK = /^- \[([ xX])\] (\d+(?:\.\d+)*) (.+)$/;
 const FIELD = /^([A-Za-z][\w-]*):\s*(.*)$/;
-const FIELD_SEPARATOR = /\s+—\s+/;
+/** Only a dash followed by `key:` starts a field, so a dash in the task text stays prose. */
+const FIELD_SEPARATOR = /\s+—\s+(?=[A-Za-z][\w-]*:)/;
 const STEP_ORDER = "GIVEN,WHEN,THEN";
 
 const USAGE = `usage: onlyplans <command> [args]
@@ -39,8 +40,10 @@ const USAGE = `usage: onlyplans <command> [args]
   archive <id> [--date YYYY-MM-DD] [--force] move a finished change to the archive
   setup --tabcomplete <zsh|bash|powershell>  add tab completion to your shell profile
 
-<id> may also be given as a path, such as docs/changes/<id>/.`;
+<id> may also be given as a path, such as docs/changes/<id>/.
+--help prints this. --version prints the version.`;
 
+const VERSION = require("../package.json").version;
 const COMPLETE = "__complete";
 const VALUE_FLAGS = new Set(["date", "tabcomplete"]);
 const SHELL_MARKERS = ["# >>> onlyplans >>>", "# <<< onlyplans <<<"];
@@ -216,9 +219,8 @@ function parseTask(line) {
   /** @type {Record<string, string>} */
   const fields = {};
   for (const part of parts) {
-    const f = FIELD.exec(part);
-    if (!f) return null;
-    fields[f[1]] = f[2];
+    const [, key, value] = /** @type {RegExpExecArray} */ (FIELD.exec(part));
+    fields[key] = value;
   }
   return { id: m[2], text: text.trim(), done: m[1] !== " ", fields, line: line.n, raw: line.text };
 }
@@ -476,9 +478,9 @@ function strictFindings(spec, plan) {
  */
 const LINE_RULES = [
   {
-    test: (text) => text.length >= MAX_COLUMNS,
-    what: (text) => `line is ${text.length} columns`,
-    fix: `keep lines under ${MAX_COLUMNS}`,
+    test: (text) => [...text].length >= MAX_CHARS,
+    what: (text) => `line is ${[...text].length} characters`,
+    fix: `keep lines under ${MAX_CHARS} characters`,
   },
   {
     test: (text) => text.includes(PLACEHOLDER),
@@ -709,7 +711,13 @@ function tasks(ctx) {
   const change = changeFromCtx(ctx);
   const plan = readPlan(change);
   if (ctx.flags.json) {
-    const rows = plan.tasks.map(({ id, text, done, fields }) => ({ id, text, done, fields }));
+    const rows = plan.tasks.map(({ id, text, done, fields, line }) => ({
+      id,
+      text,
+      done,
+      fields,
+      line,
+    }));
     print(JSON.stringify(rows, null, 2));
   } else {
     plan.tasks.forEach((t) => print(t.raw));
@@ -931,7 +939,7 @@ function flagCompletion(command, used) {
  */
 function candidates(cwd, words) {
   const [name, ...args] = words;
-  if (words.length <= 1) return completion([...Object.keys(COMMANDS), "--help"]);
+  if (words.length <= 1) return completion([...Object.keys(COMMANDS), "--help", "--version"]);
   const command = COMMANDS[name];
   if (!command) return completion([], `onlyplans: unknown command ${name}`);
   const before = args.slice(0, -1);
@@ -988,6 +996,10 @@ function main(argv) {
     positional: [name, ...positional],
     flags,
   } = parseArgs(argv);
+  if (!name && flags.version) {
+    print(VERSION);
+    return EXIT.ok;
+  }
   if (!name || flags.help) {
     print(USAGE);
     return EXIT.ok;
