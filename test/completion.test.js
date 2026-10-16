@@ -17,7 +17,7 @@ const PWSH = ["pwsh", "powershell"].find(
   (exe) => spawnSync(exe, ["-NoProfile", "-Command", "1"], { stdio: "ignore" }).status === 0,
 );
 
-/** An environment whose PATH starts with an `onlyplans` command that runs this checkout. */
+/** An environment whose PATH starts with an `onlyplans` command that runs this checkout, and node. */
 function envWithBin() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "onlyplans-bin-"));
   if (WINDOWS) {
@@ -25,7 +25,8 @@ function envWithBin() {
   } else {
     fs.symlinkSync(BIN, path.join(dir, "onlyplans"));
   }
-  return { ...process.env, [PATH_KEY]: `${dir}${path.delimiter}${process.env[PATH_KEY]}` };
+  const entries = [dir, path.dirname(process.execPath), process.env[PATH_KEY]];
+  return { ...process.env, [PATH_KEY]: entries.join(path.delimiter) };
 }
 
 /** Runs a script in the named shell with `onlyplans` on the PATH; returns stdout lines. */
@@ -287,7 +288,7 @@ test(
       const command =
         `. '${script}'; (TabExpansion2 -inputScript '${line}' -cursorColumn ${line.length})` +
         ".CompletionMatches.CompletionText";
-      // Encoded, so Windows command-line parsing cannot eat the trailing space in the input.
+      // Encoded, so the script needs no command-line quoting on either platform.
       const encoded = Buffer.from(command, "utf16le").toString("base64");
       const options = { cwd, encoding: "utf8", env: envWithBin() };
       const result = spawnSync(PWSH, ["-NoProfile", "-EncodedCommand", encoded], options);
