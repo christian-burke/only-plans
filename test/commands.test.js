@@ -51,6 +51,32 @@ test("init appends to an existing AGENTS.md and repairs a changed section", () =
   assert.equal(agentsText(cwd), good);
 });
 
+test("init refuses an AGENTS.md with a lone marker and leaves it alone", () => {
+  for (const marker of AGENTS_MARKERS) {
+    const cwd = freshDir();
+    const text = `# Rules\n\n${marker}\nold\n\n## Keep me\n`;
+    fs.writeFileSync(path.join(cwd, "AGENTS.md"), text);
+    const result = run(cwd, "init");
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /AGENTS\.md: has one of .* without the other — restore both/);
+    assert.equal(agentsText(cwd), text);
+  }
+});
+
+test("init keeps the line endings of a CRLF AGENTS.md", () => {
+  const cwd = freshDir();
+  fs.writeFileSync(path.join(cwd, "AGENTS.md"), "# Rules\r\n\r\n- Be brief.\r\n");
+  assert.equal(run(cwd, "init").status, 0);
+  const text = agentsText(cwd);
+  assert.ok(
+    text.split("\r\n").every((line) => !line.includes("\n")),
+    "found a bare LF",
+  );
+  assert.match(text, /\r\n<!-- onlyplans:end -->\r\n$/);
+  assert.match(run(cwd, "init").stdout, /^AGENTS\.md: unchanged onlyplans section$/m);
+  assert.equal(agentsText(cwd), text);
+});
+
 test("init --no-agents leaves AGENTS.md alone", () => {
   const cwd = freshDir();
   assert.equal(run(cwd, "init", "--no-agents").status, 0);
@@ -231,10 +257,35 @@ test("criteria on a task without a proof fails at the task line", () => {
   assert.match(result.stderr, expected);
 });
 
-test("a consumer that closes the pipe early gets no stack trace", () => {
-  const cwd = copyFixture("strict-placeholder");
-  const script = `"${process.execPath}" "${BIN}" validate ${ID} --strict | true`;
-  const result = spawnSync("bash", ["-c", script], { cwd, encoding: "utf8" });
-  assert.equal(result.status, 0);
+/** Runs the bin with both streams piped into a consumer that exits at once; returns its status. */
+function statusIntoClosedPipe(cwd, ...args) {
+  const script = `"${process.execPath}" "${BIN}" ${args.join(" ")} 2>&1 | true`;
+  const result = spawnSync("bash", ["-c", `${script}; exit \${PIPESTATUS[0]}`], {
+    cwd,
+    encoding: "utf8",
+  });
   assert.equal(result.stderr, "");
+  return result.status;
+}
+
+test("a consumer that closes the pipe early gets no stack trace and the usual exit code", () => {
+  const cwd = copyFixture("strict-placeholder");
+  assert.equal(statusIntoClosedPipe(cwd, "validate", ID, "--strict"), 1);
+  assert.equal(statusIntoClosedPipe(cwd, "bogus"), 2);
+  assert.equal(statusIntoClosedPipe(cwd, "tasks", ID), 0);
+});
+
+test("output larger than the pipe buffer survives a consumer that stops after one line", () => {
+  const cwd = copyFixture("pass");
+  const plan = path.join(cwd, "docs", "changes", ID, "plan.md");
+  const lines = Array.from(
+    { length: 5000 },
+    (_, i) => `- [ ] 1.${i + 1} Do thing ${i + 1} — proof: Form renders`,
+  );
+  fs.writeFileSync(plan, `# ${ID} — Plan\n\n## Tasks\n\n${lines.join("\n")}\n`);
+  const script = `"${process.execPath}" "${BIN}" tasks ${ID} | head -1; exit \${PIPESTATUS[0]}`;
+  const result = spawnSync("bash", ["-c", script], { cwd, encoding: "utf8" });
+  assert.equal(result.stdout, `${lines[0]}\n`);
+  assert.equal(result.stderr, "");
+  assert.equal(result.status, 0);
 });

@@ -7,7 +7,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const CHANGES_DIR = path.join("docs", "changes");
+/** Display paths use "/" on every platform; path.join turns them native for the filesystem. */
+const CHANGES_DIR = "docs/changes";
 const ARCHIVE_DIR = "archive";
 const TEMPLATES_DIR = path.join(__dirname, "..", "templates");
 const SPEC = "spec.md";
@@ -135,11 +136,14 @@ function isDir(file) {
   return fs.existsSync(file) && fs.statSync(file).isDirectory();
 }
 
-/** @param {string} file @returns {Line[]} */
+/**
+ * Accepts LF or CRLF, so a checkout on Windows parses the same.
+ * @param {string} file @returns {Line[]}
+ */
 function readLines(file) {
   return fs
     .readFileSync(file, "utf8")
-    .split("\n")
+    .split(/\r?\n/)
     .map((text, i) => ({ n: i + 1, text }));
 }
 
@@ -494,17 +498,17 @@ function lineFindings(file, lines) {
 
 /** @param {string} id */
 function relChange(id) {
-  return path.join(CHANGES_DIR, id);
+  return path.posix.join(CHANGES_DIR, id);
 }
 
 /** @param {string} name */
 function relArchived(name) {
-  return path.join(CHANGES_DIR, ARCHIVE_DIR, name);
+  return path.posix.join(CHANGES_DIR, ARCHIVE_DIR, name);
 }
 
 /** @param {Change} change @param {string} file */
 function relFile(change, file) {
-  return path.join(relChange(change.id), file);
+  return path.posix.join(relChange(change.id), file);
 }
 
 /** @param {string} file */
@@ -648,11 +652,12 @@ function init(ctx) {
         ` — run onlyplans from ${above}`,
     );
   }
-  for (const dir of [changesDir(ctx.cwd), archiveDir(ctx.cwd)]) {
+  for (const rel of [CHANGES_DIR, path.posix.join(CHANGES_DIR, ARCHIVE_DIR)]) {
+    const dir = path.join(ctx.cwd, rel);
     fs.mkdirSync(dir, { recursive: true });
     const keep = path.join(dir, ".gitkeep");
     if (!fs.existsSync(keep)) fs.writeFileSync(keep, "");
-    print(path.relative(ctx.cwd, dir) + path.sep);
+    print(`${rel}/`);
   }
   if (ctx.flags["no-agents"]) return;
   const outcome = upsertBlock(path.join(ctx.cwd, AGENTS_FILE), AGENTS_MARKERS, AGENTS_BLOCK);
@@ -681,7 +686,7 @@ function create(ctx) {
     const text = fs.readFileSync(path.join(TEMPLATES_DIR, file), "utf8");
     fs.writeFileSync(path.join(dir, file), text.replaceAll("<id>", id).replace("<title>", title));
   }
-  print(relChange(id) + path.sep);
+  print(`${relChange(id)}/`);
 }
 
 /** @param {string} root @param {string} id */
@@ -764,7 +769,7 @@ function archive(ctx) {
   }
   fs.mkdirSync(archiveDir(change.root), { recursive: true });
   fs.renameSync(change.dir, target);
-  print(relArchived(targetName) + path.sep);
+  print(`${relArchived(targetName)}/`);
 }
 
 /** @param {string | boolean | undefined} shell @returns {keyof SHELLS} */
@@ -803,19 +808,26 @@ function profilePath(shell) {
  * @returns {"added" | "updated" | "unchanged"}
  */
 function upsertBlock(file, [begin, end], body) {
-  const block = `${begin}\n${body}\n${end}`;
   const existing = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  const eol = existing.includes("\r\n") ? "\r\n" : "\n";
+  const block = [begin, ...body.split("\n"), end].join(eol);
   const start = existing.indexOf(begin);
   const stop = existing.indexOf(end, start);
-  if (start >= 0 && stop >= 0) {
+  if (start >= 0 !== stop >= 0) {
+    throw new CliError(
+      `${file}: has one of "${begin}" and "${end}" without the other` +
+        " — restore both markers or delete the block",
+    );
+  }
+  if (start >= 0) {
     const current = existing.slice(start, stop + end.length);
     if (current === block) return "unchanged";
     fs.writeFileSync(file, existing.slice(0, start) + block + existing.slice(stop + end.length));
     return "updated";
   }
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  const separator = !existing ? "" : existing.endsWith("\n") ? "\n" : "\n\n";
-  fs.appendFileSync(file, `${separator}${block}\n`);
+  const separator = !existing ? "" : existing.endsWith("\n") ? eol : eol + eol;
+  fs.appendFileSync(file, `${separator}${block}${eol}`);
   return "added";
 }
 
@@ -996,10 +1008,12 @@ function main(argv) {
   }
 }
 
-// A consumer such as `head` may close the pipe early. That is not an error worth a stack trace.
-process.stdout.on("error", (error) => {
-  if (error.code !== "EPIPE") throw error;
-  process.exit();
-});
+// A consumer such as `head` may close a pipe early. That is not an error worth a stack trace.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on("error", (error) => {
+    if (error.code !== "EPIPE") throw error;
+    process.exit();
+  });
+}
 
 process.exitCode = main(process.argv.slice(2));

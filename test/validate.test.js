@@ -1,6 +1,8 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { test } = require("node:test");
 const { ID, copyFixture, run } = require("./helpers");
 
@@ -48,6 +50,18 @@ for (const [fixture, expected] of FAILURES) {
     assert.doesNotMatch(result.stdout, /^PASS$/m);
   });
 }
+
+test("a change saved with CRLF line endings parses like one saved with LF", () => {
+  const cwd = copyFixture("pass");
+  const dir = path.join(cwd, CHANGE);
+  for (const file of ["spec.md", "plan.md"]) {
+    const full = path.join(dir, file);
+    fs.writeFileSync(full, fs.readFileSync(full, "utf8").replace(/\n/g, "\r\n"));
+  }
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  assert.equal(JSON.parse(run(cwd, "tasks", ID, "--json").stdout).length, 4);
+  assert.match(run(cwd, "criteria", ID, "1.1").stdout, /^#### Scenario: Form renders\n\n- GIVEN/);
+});
 
 const STRICT_FAILURES = [
   [

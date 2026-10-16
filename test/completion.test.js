@@ -9,17 +9,29 @@ const { test } = require("node:test");
 const { BIN, ID, copyFixture, run, runIn } = require("./helpers");
 const CHANGE_PATH = `docs/changes/${ID}`;
 
-/** A PATH whose first entry holds an `onlyplans` command that runs this checkout. */
-function pathWithBin() {
+const WINDOWS = process.platform === "win32";
+const POSIX_SHELLS_SKIP = WINDOWS && "bash and zsh are not the Windows story";
+/** Windows keeps PATH under whatever casing the parent used. */
+const PATH_KEY = Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
+const PWSH = ["pwsh", "powershell"].find(
+  (exe) => spawnSync(exe, ["-NoProfile", "-Command", "1"], { stdio: "ignore" }).status === 0,
+);
+
+/** An environment whose PATH starts with an `onlyplans` command for this checkout, then node. */
+function envWithBin() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "onlyplans-bin-"));
-  fs.symlinkSync(BIN, path.join(dir, "onlyplans"));
-  return `${dir}${path.delimiter}${process.env.PATH}`;
+  if (WINDOWS) {
+    fs.writeFileSync(path.join(dir, "onlyplans.cmd"), `@"${process.execPath}" "${BIN}" %*\r\n`);
+  } else {
+    fs.symlinkSync(BIN, path.join(dir, "onlyplans"));
+  }
+  const entries = [dir, path.dirname(process.execPath), process.env[PATH_KEY]];
+  return { ...process.env, [PATH_KEY]: entries.join(path.delimiter) };
 }
 
 /** Runs a script in the named shell with `onlyplans` on the PATH; returns stdout lines. */
 function shellLines(shell, cwd, script) {
-  const env = { ...process.env, PATH: pathWithBin() };
-  const result = spawnSync(shell, ["-c", script], { cwd, encoding: "utf8", env });
+  const result = spawnSync(shell, ["-c", script], { cwd, encoding: "utf8", env: envWithBin() });
   assert.equal(result.status, 0, result.stderr);
   return result.stdout.split("\n").filter(Boolean);
 }
@@ -150,10 +162,10 @@ test("a completion script ships for every shell", () => {
 
 const MARKERS = ["# >>> onlyplans >>>", "# <<< onlyplans <<<"];
 
-/** A temp home passed as both HOME and ZDOTDIR, so real profiles stay untouched. */
+/** A temp home passed as HOME, USERPROFILE, and ZDOTDIR, so real profiles stay untouched. */
 function tempHome() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "onlyplans-home-"));
-  return { home, env: { HOME: home, ZDOTDIR: home } };
+  return { home, env: { HOME: home, USERPROFILE: home, ZDOTDIR: home } };
 }
 
 function setup(env, ...args) {
@@ -244,7 +256,7 @@ function installedProfile(shell) {
   return path.join(home, shell === "zsh" ? ".zshrc" : bashProfileName());
 }
 
-test("the installed bash block fills COMPREPLY from the tool", () => {
+test("the installed bash block fills COMPREPLY from the tool", { skip: POSIX_SHELLS_SKIP }, () => {
   const cwd = copyFixture("pass");
   const profile = installedProfile("bash");
   const script = (words) =>
@@ -255,7 +267,7 @@ test("the installed bash block fills COMPREPLY from the tool", () => {
   assert.deepEqual(shellLines("bash", cwd, forTask), ["2.1", "2.2"]);
 });
 
-test("the installed zsh block hands candidates to compadd", () => {
+test("the installed zsh block hands candidates to compadd", { skip: POSIX_SHELLS_SKIP }, () => {
   const cwd = copyFixture("pass");
   const profile = installedProfile("zsh");
   const script = (words) =>
@@ -265,3 +277,25 @@ test("the installed zsh block hands candidates to compadd", () => {
   const forTask = script(`onlyplans criteria ${ID} "2"`);
   assert.deepEqual(shellLines("zsh", cwd, forTask), ["2.1", "2.2"]);
 });
+
+test(
+  "the PowerShell completer offers candidates from the tool",
+  { skip: !PWSH && "no pwsh" },
+  () => {
+    const cwd = copyFixture("pass");
+    const script = path.join(__dirname, "..", "completion", "onlyplans.ps1");
+    const lines = (line) => {
+      const command =
+        `. '${script}'; (TabExpansion2 -inputScript '${line}' -cursorColumn ${line.length})` +
+        ".CompletionMatches.CompletionText";
+      // Encoded, so the script needs no command-line quoting on either platform.
+      const encoded = Buffer.from(command, "utf16le").toString("base64");
+      const options = { cwd, encoding: "utf8", env: envWithBin() };
+      const result = spawnSync(PWSH, ["-NoProfile", "-EncodedCommand", encoded], options);
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout.split(/\r?\n/).filter(Boolean);
+    };
+    assert.deepEqual(lines("onlyplans tasks "), [ID]);
+    assert.deepEqual(lines(`onlyplans criteria ${ID} 2`), ["2.1", "2.2"]);
+  },
+);

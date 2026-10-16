@@ -107,7 +107,8 @@ Profiles: `.zshrc`, `.bash_profile` on macOS, `.bashrc` elsewhere,
 or PowerShell's `$PROFILE`. Open a new shell, and Tab offers command names, active change
 ids, task ids, flags, and a hint when there is nothing to offer. Run it again if the install
 path changes, such as after switching Node versions. It needs the `onlyplans` command on
-your path, so install globally or `npm link`; the shell cannot complete through `npx`.
+your path, so install globally or `npm link`; the shell cannot complete through `npx`. The
+PowerShell completer also needs `node` on your path.
 
 ## Credits
 
