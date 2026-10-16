@@ -248,3 +248,18 @@ test("a consumer that closes the pipe early gets no stack trace and the usual ex
   assert.equal(statusIntoClosedPipe(cwd, "bogus"), 2);
   assert.equal(statusIntoClosedPipe(cwd, "tasks", ID), 0);
 });
+
+test("output larger than the pipe buffer survives a consumer that stops after one line", () => {
+  const cwd = copyFixture("pass");
+  const plan = path.join(cwd, "docs", "changes", ID, "plan.md");
+  const lines = Array.from(
+    { length: 5000 },
+    (_, i) => `- [ ] 1.${i + 1} Do thing ${i + 1} — proof: Form renders`,
+  );
+  fs.writeFileSync(plan, `# ${ID} — Plan\n\n## Tasks\n\n${lines.join("\n")}\n`);
+  const script = `"${process.execPath}" "${BIN}" tasks ${ID} | head -1; exit \${PIPESTATUS[0]}`;
+  const result = spawnSync("bash", ["-c", script], { cwd, encoding: "utf8" });
+  assert.equal(result.stdout, `${lines[0]}\n`);
+  assert.equal(result.stderr, "");
+  assert.equal(result.status, 0);
+});
