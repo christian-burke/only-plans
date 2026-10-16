@@ -144,7 +144,7 @@ The rule set is sections 4 and 5, plus:
 A new repo, `only-plans`:
 
 ```
-package.json        # name only-plans, version, bin, files, engines.node >= 24, no dependencies
+package.json        # name only-plans, version, bin, files, engines.node >= 22, no dependencies
 bin/onlyplans.js
 templates/spec.md
 templates/plan.md

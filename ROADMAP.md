@@ -7,7 +7,7 @@ depends on the ones before it.
 
 Fixed. DIRECTION.md does not state these; the steps below assume them.
 
-- Node floor: `engines.node >= 24`. No fallbacks for older majors.
+- Node floor: `engines.node >= 22`. No fallbacks for older majors.
 - Module format: one CommonJS file with a `#!/usr/bin/env node` shebang. No `type` field,
   no bundler.
 - Test strategy: tests spawn `bin/onlyplans.js` on a copy of a fixture in a temp directory
@@ -31,7 +31,7 @@ Fixed. DIRECTION.md does not state these; the steps below assume them.
 
 Deliverable: `npm test` runs and passes zero tests. `npx .` prints usage.
 
-- `package.json`: name `only-plans`, version `0.1.0`, `bin`, `files`, `engines.node >= 24`,
+- `package.json`: name `only-plans`, version `0.1.0`, `bin`, `files`, `engines.node >= 22`,
   `license`, no `dependencies`, `scripts.test = node --test test/*.test.js` so the
   fixture repos' own test files are not collected.
 - `LICENSE` (MIT), `CHANGELOG.md` (Unreleased), `.gitignore`, `.editorconfig`.

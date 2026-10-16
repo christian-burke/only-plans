@@ -19,7 +19,7 @@
     "completion/"
   ],
   "engines": {
-    "node": ">=24"
+    "node": ">=22"
   },
   "scripts": {
     "test": "node --test test/*.test.js"
