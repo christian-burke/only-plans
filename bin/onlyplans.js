@@ -7,7 +7,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const CHANGES_DIR = path.join("docs", "changes");
+/** Display paths use "/" on every platform; path.join turns them native for the filesystem. */
+const CHANGES_DIR = "docs/changes";
 const ARCHIVE_DIR = "archive";
 const TEMPLATES_DIR = path.join(__dirname, "..", "templates");
 const SPEC = "spec.md";
@@ -497,17 +498,17 @@ function lineFindings(file, lines) {
 
 /** @param {string} id */
 function relChange(id) {
-  return path.join(CHANGES_DIR, id);
+  return path.posix.join(CHANGES_DIR, id);
 }
 
 /** @param {string} name */
 function relArchived(name) {
-  return path.join(CHANGES_DIR, ARCHIVE_DIR, name);
+  return path.posix.join(CHANGES_DIR, ARCHIVE_DIR, name);
 }
 
 /** @param {Change} change @param {string} file */
 function relFile(change, file) {
-  return path.join(relChange(change.id), file);
+  return path.posix.join(relChange(change.id), file);
 }
 
 /** @param {string} file */
@@ -651,11 +652,12 @@ function init(ctx) {
         ` — run onlyplans from ${above}`,
     );
   }
-  for (const dir of [changesDir(ctx.cwd), archiveDir(ctx.cwd)]) {
+  for (const rel of [CHANGES_DIR, path.posix.join(CHANGES_DIR, ARCHIVE_DIR)]) {
+    const dir = path.join(ctx.cwd, rel);
     fs.mkdirSync(dir, { recursive: true });
     const keep = path.join(dir, ".gitkeep");
     if (!fs.existsSync(keep)) fs.writeFileSync(keep, "");
-    print(path.relative(ctx.cwd, dir) + path.sep);
+    print(`${rel}/`);
   }
   if (ctx.flags["no-agents"]) return;
   const outcome = upsertBlock(path.join(ctx.cwd, AGENTS_FILE), AGENTS_MARKERS, AGENTS_BLOCK);
@@ -684,7 +686,7 @@ function create(ctx) {
     const text = fs.readFileSync(path.join(TEMPLATES_DIR, file), "utf8");
     fs.writeFileSync(path.join(dir, file), text.replaceAll("<id>", id).replace("<title>", title));
   }
-  print(relChange(id) + path.sep);
+  print(`${relChange(id)}/`);
 }
 
 /** @param {string} root @param {string} id */
@@ -767,7 +769,7 @@ function archive(ctx) {
   }
   fs.mkdirSync(archiveDir(change.root), { recursive: true });
   fs.renameSync(change.dir, target);
-  print(relArchived(targetName) + path.sep);
+  print(`${relArchived(targetName)}/`);
 }
 
 /** @param {string | boolean | undefined} shell @returns {keyof SHELLS} */
