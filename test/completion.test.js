@@ -113,7 +113,11 @@ for (const [words, expected] of HINTS) {
 }
 
 test("__complete stays silent when there is simply nothing left to offer", () => {
-  const done = [["init", "--no-agents", ""], ["tasks", ID, "--json", ""], ["new", ""]];
+  const done = [
+    ["init", "--no-agents", ""],
+    ["tasks", ID, "--json", ""],
+    ["new", ""],
+  ];
   for (const words of done) {
     const result = run(copyFixture("pass"), "__complete", ...words);
     assert.equal(result.stdout + result.stderr, "", words.join(" "));
