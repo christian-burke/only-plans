@@ -135,11 +135,14 @@ function isDir(file) {
   return fs.existsSync(file) && fs.statSync(file).isDirectory();
 }
 
-/** @param {string} file @returns {Line[]} */
+/**
+ * Accepts LF or CRLF, so a checkout on Windows parses the same.
+ * @param {string} file @returns {Line[]}
+ */
 function readLines(file) {
   return fs
     .readFileSync(file, "utf8")
-    .split("\n")
+    .split(/\r?\n/)
     .map((text, i) => ({ n: i + 1, text }));
 }
 
