@@ -21,6 +21,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      # The completion tests spawn zsh, which the Ubuntu image does not ship.
+      - if: runner.os == 'Linux'
+        run: sudo apt-get install -y zsh
       - run: npm test
 
   format:
