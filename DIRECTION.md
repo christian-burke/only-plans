@@ -82,7 +82,8 @@ Task line grammar:
 - `proof` is required. It names a scenario in this change's `spec.md`, or a path in the repo
   with an optional `::<name>` suffix.
 - Any other field is allowed and preserved. OnlyPlans ignores it.
-- Ids are unique and ascending by their numeric parts.
+- Ids are unique and ascending by their numeric parts. Gaps are fine: `1.2.1` sits between
+  `1.2` and `1.3`, so inserting a task never renumbers the rest.
 - Only `[x]` and `[X]` count as done.
 
 ## 6. The tool
@@ -103,7 +104,7 @@ Node is already present wherever Claude Code or OpenSpec runs, so it adds no run
 | `onlyplans list [--json]`                              | Active changes with task counts: `{id, total, done}`.                                                                                                                                     |
 | `onlyplans tasks <id> [--json]`                        | The parsed task lines: `{id, text, done, fields, line}`. `fields` holds every `key: value` on the line.                                                                                   |
 | `onlyplans criteria <id> <task>`                       | Prints the scenario blocks the task's proof names, verbatim. Errors on a missing scenario. A path proof prints the path.                                                                  |
-| `onlyplans validate <id> [--strict]`                   | Runs the rules for both files. Prints `PASS`, or one finding per line. `--strict` adds: every requirement is named as proof by at least one task, and lines are under 100 characters.     |
+| `onlyplans validate <id> [--strict]`                   | Runs the rules for both files. Prints `PASS`, or one finding per line. `--strict` adds: every scenario is named as proof by some task, and lines are under 100 characters.                |
 | `onlyplans archive <id> [--date YYYY-MM-DD] [--force]` | Refuses while a task is unchecked and names the ids, unless `--force`. Moves the folder to `archive/<date>-<id>/`. Refuses if the target exists. Does not touch git.                      |
 | `onlyplans setup --tabcomplete <shell>`                | Upserts a marked block into the profile of `zsh`, `bash`, or `powershell` that sources the completion script shipped in `completion/`. The script asks the tool for candidates and hints. |
 

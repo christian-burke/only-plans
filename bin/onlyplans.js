@@ -76,7 +76,8 @@ const AGENTS_BLOCK = [
   "`plan.md` holds `## Tasks`, `## Close-Out`, and `## Notes`. A task line is",
   "`- [ ] 1.1 <task> — proof: <Scenario name>`. The proof names a scenario in `spec.md` or a",
   "path from the repo root; a proof with `/` or `::` is a path. Extra `key: value` fields are",
-  "allowed and kept. Ids ascend. Only `[x]` counts as done.",
+  "allowed and kept. Ids ascend and may leave gaps: insert a task as `1.2.1` between `1.2` and",
+  "`1.3`, never renumber. Only `[x]` counts as done.",
 ].join("\n");
 
 /** The completion script shipped for each shell, and the profile line that loads it. */
@@ -458,13 +459,25 @@ function strictFindings(spec, plan) {
   /** @type {Finding[]} */
   const out = [];
   for (const r of spec.requirements) {
-    if (!r.scenarios.some((s) => proven.has(s.name))) {
+    const orphans = r.scenarios.filter((s) => !proven.has(s.name));
+    if (orphans.length === r.scenarios.length) {
       out.push(
         finding(
           SPEC,
           r.line,
           `requirement "${r.name}" is not the proof of any task`,
           "add a task whose proof names one of its scenarios",
+        ),
+      );
+      continue;
+    }
+    for (const s of orphans) {
+      out.push(
+        finding(
+          SPEC,
+          s.line,
+          `scenario "${s.name}" is not the proof of any task`,
+          "add a task whose proof names it, or remove the scenario",
         ),
       );
     }

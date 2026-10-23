@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+- `validate --strict` reports a scenario that no task proves. A requirement with no proven
+  scenario is still one finding at the requirement.
+- Task ids may leave gaps: insert `1.2.1` between `1.2` and `1.3` instead of renumbering.
+  The `AGENTS.md` section says so.
+
 ## 0.1.0
 
 - First release: `init`, `new`, `list`, `tasks`, `criteria`, `validate`, and `archive`.
