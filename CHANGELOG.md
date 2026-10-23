@@ -5,7 +5,7 @@
 - `validate --strict` reports a scenario that no task proves. A requirement with no proven
   scenario is still one finding at the requirement.
 - Task ids may leave gaps: insert `1.2.1` between `1.2` and `1.3` instead of renumbering.
-  The `AGENTS.md` section says so.
+  The `AGENTS.md` section says so, and tells agents to check a box by editing that one line.
 
 ## 0.1.0
 
