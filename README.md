@@ -77,12 +77,15 @@ one or more `#### Scenario:` blocks with GIVEN, WHEN, and THEN lines, in that or
 A checkbox, an id, the task text, then `key: value` fields, each introduced by `—`. A `—`
 that is not followed by `key:` is part of the task text. `proof` is required and names a
 scenario in `spec.md`, or a path from the repo root. A proof with `/` or `::` is a path.
-Other fields are kept and ignored. Ids ascend. Only `[x]` counts as done.
+Other fields are kept and ignored. Ids ascend by their numeric parts and may leave gaps, so a
+task inserted as `1.2.1` sits between `1.2` and `1.3` and nothing is renumbered. Only `[x]`
+counts as done.
 
 ## OnlyPlans Commands
 
 - `onlyplans init [--no-agents]`: creates `docs/changes/` and `docs/changes/archive/`, and
-  adds a short OnlyPlans section to `AGENTS.md` so agents learn the commands. Idempotent.
+  adds a short OnlyPlans section to `AGENTS.md` so agents learn the commands. Idempotent, so
+  run it again after updating the package to refresh the section.
   Pass `--no-agents` when something else already teaches agents the tool, such as an
   orchestrator's skill, so the section does not cost tokens on every session.
 - `onlyplans new <id>`: creates the change from the templates. Refuses a used id.
@@ -96,7 +99,7 @@ Other fields are kept and ignored. Ids ascend. Only `[x]` counts as done.
 
 `<id>` may also be given as a path, such as `docs/changes/add-login/`.
 
-`--strict` also requires that every requirement is the proof of some task, that no line
+`--strict` also requires that every scenario is the proof of some task, that no line
 reaches 100 characters, and that no `<replace me>` from the templates is left in either file.
 
 Exit 0 on success, 1 on a finding or refusal, 2 on bad usage. The tool never touches git.

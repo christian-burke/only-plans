@@ -70,6 +70,7 @@ const STRICT_FAILURES = [
   ],
   ["strict-wide-line", "spec.md:23: line is 105 characters"],
   ["strict-placeholder", "spec.md:5: unresolved placeholder"],
+  ["strict-orphan-scenario", 'spec.md:19: scenario "Bad password" is not the proof of any task'],
 ];
 
 for (const [fixture, expected] of STRICT_FAILURES) {
@@ -92,3 +93,15 @@ test("every finding is one line in file:line: what — fix form", () => {
 function escape(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+test("an orphaned scenario is one finding, not also a requirement finding", () => {
+  const result = run(copyFixture("strict-orphan-scenario"), "validate", ID, "--strict");
+  assert.equal(result.stdout.trimEnd().split("\n").length, 1);
+});
+
+test("ids inserted as 1.2.1 and 1.7 validate and keep their order", () => {
+  const cwd = copyFixture("task-inserted-ids");
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  const ids = JSON.parse(run(cwd, "tasks", ID, "--json").stdout).map((t) => t.id);
+  assert.deepEqual(ids, ["1.1", "1.2", "1.2.1", "1.7", "2.1", "2.2"]);
+});
