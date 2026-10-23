@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- `init` pads the `AGENTS.md` section with blank lines, as Markdown formatters expect around
+  an HTML comment, and leaves the section alone once a formatter has rewrapped it or renumbered
+  its list. Only a real change in the text counts as a change.
+
 ## 0.1.1
 
 - `validate --strict` reports a scenario that no task proves. A requirement with no proven

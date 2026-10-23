@@ -1,6 +1,6 @@
 {
   "name": "only-plans",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A minimal spec-driven change record: one folder, a spec, a plan, an archive.",
   "license": "MIT",
   "repository": {
