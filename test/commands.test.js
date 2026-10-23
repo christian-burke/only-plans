@@ -31,9 +31,9 @@ test("init creates AGENTS.md with the onlyplans section, then reports unchanged"
   const first = run(cwd, "init");
   assert.match(first.stdout, /^AGENTS\.md: added onlyplans section$/m);
   const text = agentsText(cwd);
-  assert.match(text, /^<!-- onlyplans:start -->\n## OnlyPlans\n/);
+  assert.match(text, /^<!-- onlyplans:start -->\n\n## OnlyPlans\n/);
   assert.match(text, /onlyplans archive <id>/);
-  assert.match(text, /\n<!-- onlyplans:end -->\n$/);
+  assert.match(text, /\n\n<!-- onlyplans:end -->\n$/);
   assert.match(run(cwd, "init").stdout, /^AGENTS\.md: unchanged onlyplans section$/m);
   assert.equal(agentsText(cwd), text);
 });
@@ -72,9 +72,28 @@ test("init keeps the line endings of a CRLF AGENTS.md", () => {
     text.split("\r\n").every((line) => !line.includes("\n")),
     "found a bare LF",
   );
-  assert.match(text, /\r\n<!-- onlyplans:end -->\r\n$/);
+  assert.match(text, /\r\n\r\n<!-- onlyplans:end -->\r\n$/);
   assert.match(run(cwd, "init").stdout, /^AGENTS\.md: unchanged onlyplans section$/m);
   assert.equal(agentsText(cwd), text);
+});
+
+test("init leaves a section alone that a Markdown formatter has reflowed", () => {
+  const cwd = freshDir();
+  run(cwd, "init");
+  const [begin, end] = AGENTS_MARKERS;
+  const text = agentsText(cwd);
+  const body = text.slice(text.indexOf(begin) + begin.length, text.indexOf(end));
+  // Join each paragraph onto one line, number every list item "1.", and drop the padding,
+  // as mdformat does.
+  const reflowed = body
+    .trim()
+    .split("\n\n")
+    .map((paragraph) => paragraph.replace(/\n\s*(?!\d+\. )/g, " ").replace(/^\d+\. /gm, "1. "))
+    .join("\n\n");
+  const formatted = `${begin}\n${reflowed}\n${end}\n`;
+  fs.writeFileSync(path.join(cwd, "AGENTS.md"), formatted);
+  assert.match(run(cwd, "init").stdout, /^AGENTS\.md: unchanged onlyplans section$/m);
+  assert.equal(agentsText(cwd), formatted);
 });
 
 test("init --no-agents leaves AGENTS.md alone", () => {

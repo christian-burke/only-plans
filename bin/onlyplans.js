@@ -53,6 +53,7 @@ const AGENTS_MARKERS = ["<!-- onlyplans:start -->", "<!-- onlyplans:end -->"];
 
 /** The section `init` upserts into AGENTS.md so agents that read it learn the tool. */
 const AGENTS_BLOCK = [
+  "",
   "## OnlyPlans",
   "",
   "Changes live in `docs/changes/<id>/` as `spec.md` and `plan.md`. Finished changes move to",
@@ -79,6 +80,7 @@ const AGENTS_BLOCK = [
   "path from the repo root; a proof with `/` or `::` is a path. Extra `key: value` fields are",
   "allowed and kept. Ids ascend and may leave gaps: insert a task as `1.2.1` between `1.2` and",
   "`1.3`, never renumber. Only `[x]` counts as done.",
+  "",
 ].join("\n");
 
 /** The completion script shipped for each shell, and the profile line that loads it. */
@@ -824,6 +826,20 @@ function profilePath(shell) {
 }
 
 /**
+ * Equal once whitespace is collapsed and ordered-list numbers are flattened, so a Markdown
+ * formatter's rewrap, added blank lines, or renumbering to "1." does not count as a change.
+ * @param {string} a @param {string} b
+ */
+function sameText(a, b) {
+  const squash = (/** @type {string} */ text) =>
+    text
+      .replace(/^\s*\d+\.(?=\s)/gm, "1.")
+      .replace(/\s+/g, " ")
+      .trim();
+  return squash(a) === squash(b);
+}
+
+/**
  * Writes `body` between the markers in `file`, replacing an earlier block or appending a new one.
  * Everything outside the markers is left as it was.
  * @param {string} file @param {string[]} markers @param {string} body
@@ -843,7 +859,7 @@ function upsertBlock(file, [begin, end], body) {
   }
   if (start >= 0) {
     const current = existing.slice(start, stop + end.length);
-    if (current === block) return "unchanged";
+    if (sameText(current, block)) return "unchanged";
     fs.writeFileSync(file, existing.slice(0, start) + block + existing.slice(stop + end.length));
     return "updated";
   }
