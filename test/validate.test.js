@@ -64,10 +64,7 @@ test("a change saved with CRLF line endings parses like one saved with LF", () =
 });
 
 const STRICT_FAILURES = [
-  [
-    "strict-unproven-requirement",
-    'spec.md:25: requirement "Session" is not the proof of any task',
-  ],
+  ["strict-unproven-requirement", 'spec.md:25: requirement "Session" is not the proof of any task'],
   ["strict-wide-line", "spec.md:23: line is 105 characters"],
   ["strict-placeholder", "spec.md:5: unresolved placeholder"],
   ["strict-orphan-scenario", 'spec.md:19: scenario "Bad password" is not the proof of any task'],
@@ -104,4 +101,17 @@ test("ids inserted as 1.2.1 and 1.7 validate and keep their order", () => {
   assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
   const ids = JSON.parse(run(cwd, "tasks", ID, "--json").stdout).map((t) => t.id);
   assert.deepEqual(ids, ["1.1", "1.2", "1.2.1", "1.7", "2.1", "2.2"]);
+});
+
+test("strict allows a line of exactly 100 characters and rejects 101", () => {
+  const tooLong = "line is 101 characters — keep lines at or under 100 characters";
+  for (const [length, expected] of [
+    [100, "PASS\n"],
+    [101, `${CHANGE}/plan.md:18: ${tooLong}\n`],
+  ]) {
+    const cwd = copyFixture("pass");
+    const plan = path.join(cwd, CHANGE, "plan.md");
+    fs.appendFileSync(plan, `\n${"x".repeat(length)}\n`);
+    assert.equal(run(cwd, "validate", ID, "--strict").stdout, expected, `length ${length}`);
+  }
 });

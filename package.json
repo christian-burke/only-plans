@@ -23,12 +23,18 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "lint": "prettier --check .",
+    "format": "prettier --write .",
+    "onlyplans": "node bin/onlyplans.js"
   },
   "keywords": [
     "spec",
     "plan",
     "change",
     "cli"
-  ]
+  ],
+  "devDependencies": {
+    "prettier": "3.9.10"
+  }
 }

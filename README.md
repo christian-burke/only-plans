@@ -89,8 +89,9 @@ counts as done.
 ## OnlyPlans Commands
 
 - `onlyplans init [--no-agents]`: creates `docs/changes/` and `docs/changes/archive/`, and
-  adds a short OnlyPlans section to `AGENTS.md` so agents learn the commands. Idempotent, so
-  run it again after updating the package to refresh the section.
+  adds a short OnlyPlans section to `AGENTS.md` so agents learn the commands. The text is
+  `templates/agents.md`, wrapped at 100 columns. Idempotent, so run it again after updating the
+  package to refresh the section; a section your formatter has rewrapped counts as unchanged.
   Pass `--no-agents` when something else already teaches agents the tool, such as an
   orchestrator's skill, so the section does not cost tokens on every session.
 - `onlyplans new <id>`: creates the change from the templates. Refuses a used id.
@@ -106,8 +107,8 @@ counts as done.
 
 `<id>` may also be given as a path, such as `docs/changes/add-login/`.
 
-`--strict` also requires that every scenario is the proof of some task, that no line
-reaches 100 characters, and that no `<replace me>` from the templates is left in either file.
+`--strict` also requires that every scenario is the proof of some task, that no line is longer
+than 100 characters, and that no `<replace me>` from the templates is left in either file.
 
 Exit 0 on success, 1 on a finding or refusal, 2 on bad usage. The tool never touches git.
 Outside `docs/changes/` it writes only the `AGENTS.md` section from `init` and the profile
@@ -122,6 +123,13 @@ Open a new shell, and Tab offers command names, active change ids, task ids, fla
 when there is nothing to offer. Run it again if the install path changes, such as after switching
 Node versions. It needs the `onlyplans` command on your path, so install globally or `npm link`;
 the shell cannot complete through `npx`. The PowerShell completer also needs `node` on your path.
+
+## Development
+
+`npm test` runs the suite. `npm run lint` and `npm run format` run the pinned Prettier at width
+100, the same width `--strict` enforces. The repo records its own changes under `docs/changes/`;
+run the checkout with `npm run onlyplans -- <command>`, since npm will not install a package as
+its own dependency.
 
 ## Credits
 

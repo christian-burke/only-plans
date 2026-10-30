@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `validate --strict` accepts a line of exactly 100 characters and reports only longer ones, so a
+  repo formatted at width 100 passes. The fix text now says "at or under 100".
+- The `AGENTS.md` section `init` writes fills 100 columns and lives in `templates/agents.md`. Run
+  `onlyplans init` again to refresh it; a section a formatter has rewrapped counts as unchanged.
+- The repo records its own changes under `docs/changes/` and pins Prettier as a dev dependency.
+
 ## 0.2.0
 
 - `done <id> <task>` checks one task's box in `plan.md` in place and changes no other byte,

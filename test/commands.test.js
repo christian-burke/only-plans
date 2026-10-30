@@ -30,6 +30,17 @@ test("init creates both folders with .gitkeep and is idempotent", () => {
   }
 });
 
+test("the AGENTS.md section fits a 100-column formatter", () => {
+  const cwd = freshDir();
+  run(cwd, "init");
+  const lines = agentsText(cwd).split("\n");
+  assert.ok(
+    lines.some((line) => line.length > 90),
+    "the section fills its width",
+  );
+  for (const line of lines) assert.ok(line.length <= 100, `${line.length}: ${line}`);
+});
+
 test("init creates AGENTS.md with the onlyplans section, then reports unchanged", () => {
   const cwd = freshDir();
   const first = run(cwd, "init");
@@ -411,7 +422,7 @@ test("output larger than the pipe buffer survives a consumer that stops after on
   assert.equal(result.status, 0);
 });
 
-test("npm pack ships every file under lib/", () => {
+test("npm pack ships every file under lib/ and nothing outside the allowlist", () => {
   const root = path.join(__dirname, "..");
   const result = spawnSync("npm", ["pack", "--dry-run", "--json"], {
     cwd: root,
@@ -419,8 +430,11 @@ test("npm pack ships every file under lib/", () => {
     shell: true,
   });
   assert.equal(result.status, 0, result.stderr);
-  const shipped = new Set(JSON.parse(result.stdout)[0].files.map((f) => f.path));
+  const shipped = JSON.parse(result.stdout)[0].files.map((f) => f.path);
   for (const name of fs.readdirSync(path.join(root, "lib"))) {
-    assert.ok(shipped.has(`lib/${name}`), `lib/${name} is not in the package`);
+    assert.ok(shipped.includes(`lib/${name}`), `lib/${name} is not in the package`);
   }
+  // Everything else in the checkout (docs/, test/, .githooks/, AGENTS.md, configs) stays out.
+  const allowed = /^(bin|lib|templates|completion)\/|^(LICENSE|README\.md|package\.json)$/;
+  for (const file of shipped) assert.match(file, allowed, `${file} should not be in the package`);
 });
