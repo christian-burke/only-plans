@@ -30,6 +30,17 @@ test("init creates both folders with .gitkeep and is idempotent", () => {
   }
 });
 
+test("the AGENTS.md section fits a 100-column formatter", () => {
+  const cwd = freshDir();
+  run(cwd, "init");
+  const lines = agentsText(cwd).split("\n");
+  assert.ok(
+    lines.some((line) => line.length > 90),
+    "the section fills its width",
+  );
+  for (const line of lines) assert.ok(line.length <= 100, `${line.length}: ${line}`);
+});
+
 test("init creates AGENTS.md with the onlyplans section, then reports unchanged", () => {
   const cwd = freshDir();
   const first = run(cwd, "init");
