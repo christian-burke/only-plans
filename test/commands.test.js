@@ -271,6 +271,19 @@ test("an unknown change is one line on stderr with exit 1", () => {
   assert.equal(result.stderr, "docs/changes/nope: no such change — run onlyplans list\n");
 });
 
+test("a bare . or .. is not a change id and writes nothing", () => {
+  const cwd = copyFixture("pass");
+  const stray = path.join(cwd, "docs", "plan.md");
+  fs.copyFileSync(planPath(cwd), stray);
+  const before = fs.readFileSync(stray);
+  for (const id of [".", ".."]) {
+    const result = run(cwd, "done", id, "1.2");
+    assert.equal(result.status, 1, id);
+    assert.match(result.stderr, /no such change — run onlyplans list/);
+  }
+  assert.deepEqual(fs.readFileSync(stray), before);
+});
+
 test("any command outside a root fails in one line that points at init", () => {
   const cwd = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "onlyplans-noroot-"));
   const result = run(cwd, "list");

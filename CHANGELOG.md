@@ -6,6 +6,7 @@
   CRLF and a missing final newline included. A second run is a no-op. The `AGENTS.md` section
   now tells agents to run it instead of editing the line; run `onlyplans init` again to
   refresh the section.
+- A bare `.` or `..` is refused as a change id, as any other missing change is.
 
 ## 0.1.2
 
