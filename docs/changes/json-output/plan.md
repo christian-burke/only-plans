@@ -2,17 +2,17 @@
 
 ## Tasks
 
-- [ ] 1.1 Serialize findings via one findingRow helper — proof: Findings carry the rendered path
-- [ ] 1.2 Print [] and exit 0 for a clean change — proof: Clean change prints an empty array
-- [ ] 1.3 Combine --json with --strict — proof: Strict findings serialize too
-- [ ] 2.1 Record given, when, then on Scenario in the parser — proof: Scenario proof as JSON
-- [ ] 2.2 Print a path proof as JSON — proof: Path proof as JSON
-- [ ] 2.3 Keep criteria errors on stderr with --json — proof: Missing task fails the same way
-- [ ] 3.1 Add path to list --json rows — proof: Row has a path
-- [ ] 4.1 Pin text modes with literal expected output — proof: Text modes unchanged
-- [ ] 4.2 Add json to validate and criteria flags and USAGE — proof: Completion offers the flag
-- [ ] 4.3 Document the three JSON shapes in README — proof: ./README.md
-- [ ] 4.4 Add the changelog entry under Unreleased — proof: ./CHANGELOG.md
+- [ ] 1.1 Pin text modes with literal expected output — proof: Text modes unchanged
+- [ ] 2.1 Add --json to validate via one findingRow — proof: Findings carry the rendered path
+- [ ] 2.2 Print [] and exit 0 for a clean change — proof: Clean change prints an empty array
+- [ ] 2.3 Combine --json with --strict — proof: Strict findings serialize too
+- [ ] 3.1 Add --json to criteria; parser records given, when, then — proof: Scenario proof as JSON
+- [ ] 3.2 Print a path proof as JSON — proof: Path proof as JSON
+- [ ] 3.3 Keep criteria errors on stderr with --json — proof: Missing task fails the same way
+- [ ] 4.1 Add path to list --json rows — proof: Row has a path
+- [ ] 5.1 Show --json in USAGE for validate and criteria — proof: Completion offers the flag
+- [ ] 5.2 Document the three JSON shapes in README — proof: ./README.md
+- [ ] 5.3 Add the changelog entry under Unreleased — proof: ./CHANGELOG.md
 
 ## Close-Out
 
