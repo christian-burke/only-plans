@@ -44,7 +44,12 @@ Validating with `--strict` is suggested.
 onlyplans validate <id> --strict
 ```
 
-Work the tasks and check their boxes as you go.
+Work the tasks, and check each box with `done` as you go.
+
+```
+onlyplans done <id> <task>
+```
+
 When every box is checked, `archive` it.
 This moves your OnlyPlan to `docs/changes/archive/<YYYY-MM-DD>-<id>/`.
 
@@ -93,6 +98,8 @@ counts as done.
 - `onlyplans tasks <id> [--json]`: the parsed task lines. JSON rows carry `id`, `text`, `done`,
   `fields`, and `line`.
 - `onlyplans criteria <id> <task>`: the scenario the task's proof names, verbatim.
+- `onlyplans done <id> <task>`: checks one task's box in `plan.md` in place. A second run is a
+  no-op.
 - `onlyplans validate <id> [--strict]`: `PASS`, or one finding per line as `file:line`.
 - `onlyplans archive <id> [--date D] [--force]`: moves the change to the archive.
 - `onlyplans setup --tabcomplete <zsh|bash|powershell>`: adds tab completion to your shell.
