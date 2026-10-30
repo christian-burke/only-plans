@@ -16,8 +16,7 @@ this codebase to:
   well-named option to it before forking a near-copy.
 - **YAGNI.** Don't add flexibility, params, or abstraction for hypothetical futures.
 
-Before finishing a change, scan it for the classic code smells (full catalog:
-https://refactoring.guru/refactoring/smells) and fix any you introduced:
+Before finishing a change, scan it for the classic code smells and fix any you introduced:
 
 - **Bloaters** — Long Method · Large Class · Primitive Obsession · Long Parameter
   List · Data Clumps.
