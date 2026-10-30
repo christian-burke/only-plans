@@ -25,6 +25,7 @@ const {
   changeFromCtx,
   readPlan,
   readSpec,
+  findingRow,
   renderFinding,
 } = require("../lib/repo");
 const { validateChange, missingScenarioFinding } = require("../lib/validate");
@@ -241,6 +242,16 @@ function done(ctx) {
 function validate(ctx) {
   const change = changeFromCtx(ctx);
   const findings = validateChange(change, Boolean(ctx.flags.strict));
+  if (ctx.flags.json) {
+    print(
+      JSON.stringify(
+        findings.map((f) => findingRow(change, f)),
+        null,
+        2,
+      ),
+    );
+    return findings.length ? EXIT.fail : EXIT.ok;
+  }
   if (!findings.length) return print("PASS");
   findings.forEach((f) => print(renderFinding(change, f)));
   return EXIT.fail;
@@ -374,7 +385,7 @@ const COMMANDS = {
   tasks: { arity: 1, flags: ["json"], run: tasks, positional: [idCompletion] },
   criteria: { arity: 2, flags: [], run: criteria, positional: [idCompletion, taskIdCompletion] },
   done: { arity: 2, flags: [], run: done, positional: [idCompletion, taskIdCompletion] },
-  validate: { arity: 1, flags: ["strict"], run: validate, positional: [idCompletion] },
+  validate: { arity: 1, flags: ["strict", "json"], run: validate, positional: [idCompletion] },
   archive: { arity: 1, flags: ["date", "force"], run: archive, positional: [idCompletion] },
   setup: { arity: 0, flags: ["tabcomplete"], run: setup },
 };

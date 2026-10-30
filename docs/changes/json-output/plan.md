@@ -3,9 +3,9 @@
 ## Tasks
 
 - [x] 1.1 Pin text modes with literal expected output — proof: Text modes unchanged
-- [ ] 2.1 Add --json to validate via one findingRow — proof: Findings carry the rendered path
-- [ ] 2.2 Print [] and exit 0 for a clean change — proof: Clean change prints an empty array
-- [ ] 2.3 Combine --json with --strict — proof: Strict findings serialize too
+- [x] 2.1 Add --json to validate via one findingRow — proof: Findings carry the rendered path
+- [x] 2.2 Print [] and exit 0 for a clean change — proof: Clean change prints an empty array
+- [x] 2.3 Combine --json with --strict — proof: Strict findings serialize too
 - [ ] 3.1 Add --json to criteria; parser records given, when, then — proof: Scenario proof as JSON
 - [ ] 3.2 Print a path proof as JSON — proof: Path proof as JSON
 - [ ] 3.3 Keep criteria errors on stderr with --json — proof: Missing task fails the same way
