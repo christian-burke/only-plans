@@ -438,3 +438,20 @@ test("npm pack ships every file under lib/ and nothing outside the allowlist", (
   const allowed = /^(bin|lib|templates|completion)\/|^(LICENSE|README\.md|package\.json)$/;
   for (const file of shipped) assert.match(file, allowed, `${file} should not be in the package`);
 });
+
+test("text modes of validate, criteria, and list are unchanged", () => {
+  const cwd = copyFixture("pass");
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  assert.equal(run(cwd, "list").stdout, `${ID} 1/4\n`);
+  assert.equal(
+    run(cwd, "criteria", ID, "1.2").stdout,
+    [
+      "#### Scenario: Bad password",
+      "",
+      "- GIVEN a signed-out user",
+      "- WHEN they submit a wrong password",
+      "- THEN an error is shown",
+      "",
+    ].join("\n"),
+  );
+});
