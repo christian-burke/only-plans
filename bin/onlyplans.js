@@ -30,7 +30,6 @@ const {
 const { validateChange, missingScenarioFinding } = require("../lib/validate");
 const {
   COMPLETE,
-  VALUE_FLAGS,
   completion,
   idCompletion,
   taskIdCompletion,
@@ -262,9 +261,11 @@ function archive(ctx) {
   print(`${relArchived(targetName)}/`);
 }
 
-/** @param {string | boolean | undefined} shell @returns {keyof SHELLS} */
+/** @param {string | boolean | undefined} shell @returns {keyof typeof SHELLS} */
 function requireShell(shell) {
-  if (typeof shell === "string" && shell in SHELLS) return /** @type {keyof SHELLS} */ (shell);
+  if (typeof shell === "string" && shell in SHELLS) {
+    return /** @type {keyof typeof SHELLS} */ (shell);
+  }
   const given = shell || "<shell>";
   throw new CliError(`${given}: unknown shell — use zsh, bash, or powershell`, EXIT.usage);
 }
@@ -281,7 +282,7 @@ function powershellProfile() {
   );
 }
 
-/** @param {keyof SHELLS} shell */
+/** @param {keyof typeof SHELLS} shell */
 function profilePath(shell) {
   const home = os.homedir();
   if (shell === "zsh") return path.join(process.env.ZDOTDIR || home, ".zshrc");
@@ -348,7 +349,10 @@ function setup(ctx) {
   print(`${profile}: ${outcome} onlyplans tab completion${next}`);
 }
 
-/** @type {Record<string, () => Completion>} */
+/**
+ * The flags that take a value, and what Tab offers for each.
+ * @type {Record<string, () => Completion>}
+ */
 const FLAG_VALUES = {
   tabcomplete: () => completion(Object.keys(SHELLS)),
   date: () => completion([], "onlyplans: --date takes YYYY-MM-DD"),
@@ -375,7 +379,7 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     const name = arg.startsWith("--") ? arg.slice(2) : null;
-    if (name && VALUE_FLAGS.has(name)) flags[name] = argv[++i] ?? "";
+    if (name && Object.hasOwn(FLAG_VALUES, name)) flags[name] = argv[++i] ?? "";
     else if (name) flags[name] = true;
     else positional.push(arg);
   }
@@ -390,7 +394,12 @@ function usageError(message) {
 
 /** @param {string[]} argv */
 function main(argv) {
-  if (argv[0] === COMPLETE) return complete(process.cwd(), argv.slice(1), COMMANDS, FLAG_VALUES);
+  if (argv[0] === COMPLETE) {
+    const { matches, message } = complete(process.cwd(), argv.slice(1), COMMANDS, FLAG_VALUES);
+    matches.forEach(print);
+    if (message) process.stderr.write(`${message}\n`);
+    return EXIT.ok;
+  }
   const {
     positional: [name, ...positional],
     flags,
