@@ -15,6 +15,7 @@
   },
   "files": [
     "bin/",
+    "lib/",
     "templates/",
     "completion/"
   ],

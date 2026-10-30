@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Strip AI attribution from every commit message before it is recorded.
+# AGENTS.md forbids attributing commits to Claude or any other model, but the
+# agent harness injects a Co-Authored-By trailer into each agent's
+# instructions. Removing it here holds for every committer and every tool.
+# Enable once per clone: git config core.hooksPath .githooks
+set -euo pipefail
+
+msg=$1
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+
+grep -Ev -i \
+  '^(co-authored-by|generated-by|assisted-by):.*(claude|anthropic|openai|copilot|gemini|gpt| ai\b)|generated with \[?claude code' \
+  "$msg" > "$tmp" || true
+
+if ! cmp -s "$msg" "$tmp"; then
+  echo "commit-msg: removed AI attribution line(s)" >&2
+  cat "$tmp" > "$msg"
+fi

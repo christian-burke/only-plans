@@ -324,3 +324,17 @@ test("output larger than the pipe buffer survives a consumer that stops after on
   assert.equal(result.stderr, "");
   assert.equal(result.status, 0);
 });
+
+test("npm pack ships every file under lib/", () => {
+  const root = path.join(__dirname, "..");
+  const result = spawnSync("npm", ["pack", "--dry-run", "--json"], {
+    cwd: root,
+    encoding: "utf8",
+    shell: true,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const shipped = new Set(JSON.parse(result.stdout)[0].files.map((f) => f.path));
+  for (const name of fs.readdirSync(path.join(root, "lib"))) {
+    assert.ok(shipped.has(`lib/${name}`), `lib/${name} is not in the package`);
+  }
+});
