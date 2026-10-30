@@ -17,6 +17,10 @@ function agentsText(cwd) {
   return fs.readFileSync(path.join(cwd, "AGENTS.md"), "utf8");
 }
 
+function planPath(cwd) {
+  return path.join(cwd, "docs", "changes", ID, "plan.md");
+}
+
 test("init creates both folders with .gitkeep and is idempotent", () => {
   const cwd = freshDir();
   for (let i = 0; i < 2; i++) {
@@ -239,7 +243,13 @@ test("commands run from a subdirectory of the root", () => {
 
 test("usage errors exit 2 and print usage", () => {
   const cwd = copyFixture("pass");
-  const bad = [["bogus"], ["tasks"], ["tasks", ID, "--strict"], ["validate", ID, "extra"]];
+  const bad = [
+    ["bogus"],
+    ["tasks"],
+    ["tasks", ID, "--strict"],
+    ["validate", ID, "extra"],
+    ["done", ID],
+  ];
   for (const args of bad) {
     const result = run(cwd, ...args);
     assert.equal(result.status, 2, args.join(" "));
@@ -292,6 +302,70 @@ test("criteria on a task without a proof fails at the task line", () => {
   assert.match(result.stderr, expected);
 });
 
+test("done checks one line and changes nothing else", () => {
+  const cwd = copyFixture("pass");
+  const before = fs.readFileSync(planPath(cwd), "utf8");
+  const result = run(cwd, "done", ID, "1.2");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, `checked 1.2 at docs/changes/${ID}/plan.md:6\n`);
+  assert.equal(fs.readFileSync(planPath(cwd), "utf8"), before.replace("- [ ] 1.2", "- [x] 1.2"));
+});
+
+test("done on a checked task is a no-op", () => {
+  const cwd = copyFixture("pass");
+  const before = fs.readFileSync(planPath(cwd));
+  const result = run(cwd, "done", ID, "1.1");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, "1.1 already checked\n");
+  assert.deepEqual(fs.readFileSync(planPath(cwd)), before);
+});
+
+test("done on an unknown task fails in one line and leaves the file alone", () => {
+  const cwd = copyFixture("pass");
+  const before = fs.readFileSync(planPath(cwd));
+  const result = run(cwd, "done", ID, "9.9");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /^docs\/changes\/add-login\/plan\.md: no task 9\.9 — /);
+  assert.deepEqual(fs.readFileSync(planPath(cwd)), before);
+});
+
+test("done keeps CRLF line endings", () => {
+  const cwd = copyFixture("pass");
+  const crlf = fs.readFileSync(planPath(cwd), "utf8").replaceAll("\n", "\r\n");
+  fs.writeFileSync(planPath(cwd), crlf);
+  assert.equal(run(cwd, "done", ID, "1.2").status, 0);
+  const after = fs.readFileSync(planPath(cwd), "utf8");
+  assert.ok(
+    after.split("\r\n").every((line) => !line.includes("\n")),
+    "found a bare LF",
+  );
+  assert.equal(after, crlf.replace("- [ ] 1.2", "- [x] 1.2"));
+});
+
+test("done keeps a missing final newline missing", () => {
+  const cwd = copyFixture("pass");
+  const text = fs.readFileSync(planPath(cwd), "utf8").replace(/\n$/, "");
+  fs.writeFileSync(planPath(cwd), text);
+  assert.equal(run(cwd, "done", ID, "1.2").status, 0);
+  assert.equal(fs.readFileSync(planPath(cwd), "utf8"), text.replace("- [ ] 1.2", "- [x] 1.2"));
+});
+
+test("done treats an uppercase X as checked and leaves it uppercase", () => {
+  const cwd = copyFixture("pass");
+  const text = fs.readFileSync(planPath(cwd), "utf8").replace("- [x] 1.1", "- [X] 1.1");
+  fs.writeFileSync(planPath(cwd), text);
+  assert.equal(run(cwd, "done", ID, "1.1").stdout, "1.1 already checked\n");
+  assert.equal(fs.readFileSync(planPath(cwd), "utf8"), text);
+});
+
+test("done keeps a byte order mark", () => {
+  const cwd = copyFixture("pass");
+  const text = `\uFEFF${fs.readFileSync(planPath(cwd), "utf8")}`;
+  fs.writeFileSync(planPath(cwd), text);
+  assert.equal(run(cwd, "done", ID, "1.2").status, 0);
+  assert.equal(fs.readFileSync(planPath(cwd), "utf8"), text.replace("- [ ] 1.2", "- [x] 1.2"));
+});
+
 /** Runs the bin with both streams piped into a consumer that exits at once; returns its status. */
 function statusIntoClosedPipe(cwd, ...args) {
   const script = `"${process.execPath}" "${BIN}" ${args.join(" ")} 2>&1 | true`;
@@ -312,12 +386,11 @@ test("a consumer that closes the pipe early gets no stack trace and the usual ex
 
 test("output larger than the pipe buffer survives a consumer that stops after one line", () => {
   const cwd = copyFixture("pass");
-  const plan = path.join(cwd, "docs", "changes", ID, "plan.md");
   const lines = Array.from(
     { length: 5000 },
     (_, i) => `- [ ] 1.${i + 1} Do thing ${i + 1} — proof: Form renders`,
   );
-  fs.writeFileSync(plan, `# ${ID} — Plan\n\n## Tasks\n\n${lines.join("\n")}\n`);
+  fs.writeFileSync(planPath(cwd), `# ${ID} — Plan\n\n## Tasks\n\n${lines.join("\n")}\n`);
   const script = `"${process.execPath}" "${BIN}" tasks ${ID} | head -1; exit \${PIPESTATUS[0]}`;
   const result = spawnSync("bash", ["-c", script], { cwd, encoding: "utf8" });
   assert.equal(result.stdout, `${lines[0]}\n`);

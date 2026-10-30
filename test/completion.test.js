@@ -49,6 +49,7 @@ test("commands accept a path to the change folder in place of the id", () => {
   assert.equal(run(path.join(cwd, "test"), "validate", `../${CHANGE_PATH}`).stdout, "PASS\n");
   assert.match(run(cwd, "criteria", CHANGE_PATH, "2.2").stdout, /^test\/login\.test\.js/);
   assert.equal(run(cwd, "tasks", CHANGE_PATH, "--json").status, 0);
+  assert.equal(run(cwd, "done", CHANGE_PATH, "1.1").stdout, "1.1 already checked\n");
 });
 
 test("a path that is not a change folder is a usage error", () => {
@@ -69,6 +70,7 @@ const CANDIDATES = [
       "list",
       "tasks",
       "criteria",
+      "done",
       "validate",
       "archive",
       "setup",
@@ -89,6 +91,10 @@ const CANDIDATES = [
   [
     ["criteria", `${CHANGE_PATH}/`, "2"],
     ["2.1", "2.2"],
+  ],
+  [
+    ["done", ID, ""],
+    ["1.1", "1.2", "2.1", "2.2"],
   ],
   [["criteria", "nope", ""], []],
   [["tasks", ID, "--"], ["--json"]],

@@ -39,6 +39,8 @@ const {
 /** @typedef {import("../lib/repo").Ctx} Ctx */
 /** @typedef {import("../lib/complete").Completion} Completion */
 /** @typedef {import("../lib/complete").Command} Command */
+/** @typedef {import("../lib/repo").Change} Change */
+/** @typedef {import("../lib/parse").Task} Task */
 
 const TEMPLATES_DIR = path.join(__dirname, "..", "templates");
 
@@ -52,6 +54,7 @@ const USAGE = `usage: onlyplans <command> [args]
   list [--json]                              active changes with task counts
   tasks <id> [--json]                        the parsed task lines of a change
   criteria <id> <task>                       the scenario a task's proof names
+  done <id> <task>                           check one task's box in plan.md in place
   validate <id> [--strict]                   check both files, print PASS or findings
   archive <id> [--date YYYY-MM-DD] [--force] move a finished change to the archive
   setup --tabcomplete <zsh|bash|powershell>  add tab completion to your shell profile
@@ -205,17 +208,22 @@ function tasks(ctx) {
   }
 }
 
+/** @param {Change} change @param {string} taskId @returns {Task} */
+function requireTask(change, taskId) {
+  const task = readPlan(change).tasks.find((t) => t.id === taskId);
+  if (!task) {
+    throw new CliError(
+      `${relFile(change, PLAN)}: no task ${taskId} — run onlyplans tasks ${change.id}`,
+    );
+  }
+  return task;
+}
+
 /** @param {Ctx} ctx */
 function criteria(ctx) {
   const taskId = ctx.positional[1];
   const change = changeFromCtx(ctx);
-  const plan = readPlan(change);
-  const task = plan.tasks.find((t) => t.id === taskId);
-  if (!task) {
-    throw new CliError(
-      `${relFile(change, PLAN)}: no task ${taskId}` + ` — run onlyplans tasks ${change.id}`,
-    );
-  }
+  const task = requireTask(change, taskId);
   if (!("proof" in task.fields)) {
     throw new CliError(
       `${relFile(change, PLAN)}:${task.line}: task ${taskId} has no proof` +
@@ -227,6 +235,30 @@ function criteria(ctx) {
   const scenario = scenariosOf(readSpec(change)).find((s) => s.name === proof.target);
   if (!scenario) throw new CliError(renderFinding(change, missingScenarioFinding(task, proof)));
   print(scenario.block.join("\n"));
+}
+
+/**
+ * Turns the leading `- [ ]` into `- [x]` on line `lineNumber` (1-based) and leaves every other
+ * byte as it was.
+ * Splits on `\n` alone so a `\r` stays with its line and a missing final newline stays missing.
+ * @param {string} text @param {number} lineNumber
+ */
+function checkLine(text, lineNumber) {
+  const lines = text.split("\n");
+  lines[lineNumber - 1] = lines[lineNumber - 1].replace(/^- \[ \]/, "- [x]");
+  return lines.join("\n");
+}
+
+/** @param {Ctx} ctx */
+function done(ctx) {
+  const taskId = ctx.positional[1];
+  const change = changeFromCtx(ctx);
+  const task = requireTask(change, taskId);
+  if (task.done) return print(`${taskId} already checked`);
+  const file = path.join(change.dir, PLAN);
+  // latin1 maps every byte to one code unit and back, so nothing outside the one line changes.
+  fs.writeFileSync(file, checkLine(fs.readFileSync(file, "latin1"), task.line), "latin1");
+  print(`checked ${taskId} at ${relFile(change, PLAN)}:${task.line}`);
 }
 
 /** @param {Ctx} ctx */
@@ -365,6 +397,7 @@ const COMMANDS = {
   list: { arity: 0, flags: ["json"], run: list },
   tasks: { arity: 1, flags: ["json"], run: tasks, positional: [idCompletion] },
   criteria: { arity: 2, flags: [], run: criteria, positional: [idCompletion, taskIdCompletion] },
+  done: { arity: 2, flags: [], run: done, positional: [idCompletion, taskIdCompletion] },
   validate: { arity: 1, flags: ["strict"], run: validate, positional: [idCompletion] },
   archive: { arity: 1, flags: ["date", "force"], run: archive, positional: [idCompletion] },
   setup: { arity: 0, flags: ["tabcomplete"], run: setup },
