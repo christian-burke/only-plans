@@ -28,8 +28,18 @@ const {
   renderFinding,
 } = require("../lib/repo");
 const { validateChange, missingScenarioFinding } = require("../lib/validate");
+const {
+  COMPLETE,
+  VALUE_FLAGS,
+  completion,
+  idCompletion,
+  taskIdCompletion,
+  complete,
+} = require("../lib/complete");
 
 /** @typedef {import("../lib/repo").Ctx} Ctx */
+/** @typedef {import("../lib/complete").Completion} Completion */
+/** @typedef {import("../lib/complete").Command} Command */
 
 const TEMPLATES_DIR = path.join(__dirname, "..", "templates");
 
@@ -51,8 +61,6 @@ const USAGE = `usage: onlyplans <command> [args]
 --help prints this. --version prints the version.`;
 
 const VERSION = require("../package.json").version;
-const COMPLETE = "__complete";
-const VALUE_FLAGS = new Set(["date", "tabcomplete"]);
 const SHELL_MARKERS = ["# >>> onlyplans >>>", "# <<< onlyplans <<<"];
 const COMPLETION_DIR = path.join(__dirname, "..", "completion");
 const AGENTS_FILE = "AGENTS.md";
@@ -340,51 +348,11 @@ function setup(ctx) {
   print(`${profile}: ${outcome} onlyplans tab completion${next}`);
 }
 
-/**
- * What Tab may offer: candidates, or a hint for the user when there are none.
- * @typedef {{ list: string[], hint: string }} Completion
- */
-
-/** @param {string[]} list @param {string} [hint] @returns {Completion} */
-function completion(list, hint = "") {
-  return { list, hint };
-}
-
-/** @param {string} cwd @returns {Completion} */
-function idCompletion(cwd) {
-  const root = locateRoot(cwd);
-  if (!root) {
-    return completion([], "onlyplans: no docs/changes/ above here — run onlyplans init");
-  }
-  const ids = activeIds(root);
-  const hint = ids.length
-    ? ""
-    : "onlyplans: no active changes — run onlyplans new <id> or onlyplans --help for more";
-  return completion(ids, hint);
-}
-
-/** @param {string} cwd @param {string[]} before @returns {Completion} */
-function taskIdCompletion(cwd, [arg]) {
-  try {
-    const plan = readPlan(changeFromCtx({ cwd, positional: [arg], flags: {} }));
-    const ids = plan.tasks.map((t) => t.id);
-    return completion(ids, ids.length ? "" : `onlyplans: no tasks in ${arg}`);
-  } catch (error) {
-    if (error instanceof CliError) return completion([], error.message);
-    throw error;
-  }
-}
-
 /** @type {Record<string, () => Completion>} */
 const FLAG_VALUES = {
   tabcomplete: () => completion(Object.keys(SHELLS)),
   date: () => completion([], "onlyplans: --date takes YYYY-MM-DD"),
 };
-
-/**
- * @typedef {{ arity: number, flags: string[], run: (ctx: Ctx) => number | void,
- *             positional?: Array<(cwd: string, before: string[]) => Completion> }} Command
- */
 
 /** @type {Record<string, Command>} */
 const COMMANDS = {
@@ -397,63 +365,6 @@ const COMMANDS = {
   archive: { arity: 1, flags: ["date", "force"], run: archive, positional: [idCompletion] },
   setup: { arity: 0, flags: ["tabcomplete"], run: setup },
 };
-
-/** Splits the words before the cursor into positionals and the flags already used.
- * @param {string[]} before */
-function typedSoFar(before) {
-  /** @type {string[]} */
-  const positionals = [];
-  /** @type {Set<string>} */
-  const used = new Set();
-  for (let i = 0; i < before.length; i++) {
-    const name = before[i].startsWith("--") ? before[i].slice(2) : null;
-    if (name === null) positionals.push(before[i]);
-    else {
-      used.add(name);
-      if (VALUE_FLAGS.has(name)) i++;
-    }
-  }
-  return { positionals, used };
-}
-
-/** @param {Command} command @param {Set<string>} used */
-function flagCompletion(command, used) {
-  return completion(command.flags.filter((f) => !used.has(f)).map((f) => `--${f}`));
-}
-
-/**
- * The words typed so far. The last one is the word under the cursor, and may be empty.
- * @param {string} cwd @param {string[]} words @returns {Completion}
- */
-function candidates(cwd, words) {
-  const [name, ...args] = words;
-  if (words.length <= 1) return completion([...Object.keys(COMMANDS), "--help", "--version"]);
-  const command = COMMANDS[name];
-  if (!command) return completion([], `onlyplans: unknown command ${name}`);
-  const before = args.slice(0, -1);
-  const current = args[args.length - 1];
-  const previous = before[before.length - 1];
-  const valueOf = previous?.startsWith("--") ? FLAG_VALUES[previous.slice(2)] : undefined;
-  if (valueOf) return valueOf();
-  const { positionals, used } = typedSoFar(before);
-  if (current.startsWith("-")) return flagCompletion(command, used);
-  const next = command.positional?.[positionals.length];
-  if (next) return next(cwd, positionals);
-  if (positionals.length < command.arity) return completion([]);
-  return flagCompletion(command, used);
-}
-
-/** @param {string} cwd @param {string[]} argv */
-function complete(cwd, argv) {
-  const words = argv.length ? argv : [""];
-  const current = words[words.length - 1];
-  const { list, hint } = candidates(cwd, words);
-  const matches = list.filter((c) => c.startsWith(current));
-  matches.forEach(print);
-  const noMatch = list.length ? `onlyplans: nothing matches "${current}"` : hint;
-  if (!matches.length && noMatch) process.stderr.write(`${noMatch}\n`);
-  return EXIT.ok;
-}
 
 /** @param {string[]} argv */
 function parseArgs(argv) {
@@ -479,7 +390,7 @@ function usageError(message) {
 
 /** @param {string[]} argv */
 function main(argv) {
-  if (argv[0] === COMPLETE) return complete(process.cwd(), argv.slice(1));
+  if (argv[0] === COMPLETE) return complete(process.cwd(), argv.slice(1), COMMANDS, FLAG_VALUES);
   const {
     positional: [name, ...positional],
     flags,
