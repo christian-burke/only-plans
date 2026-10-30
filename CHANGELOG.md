@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- `done <id> <task>` checks one task's box in `plan.md` in place and changes no other byte,
+  CRLF and a missing final newline included. A second run is a no-op. The `AGENTS.md` section
+  now tells agents to run it instead of editing the line; run `onlyplans init` again to
+  refresh the section.
+
 ## 0.1.2
 
 - `init` pads the `AGENTS.md` section with blank lines, as Markdown formatters expect around
