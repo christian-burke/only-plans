@@ -105,3 +105,15 @@ test("ids inserted as 1.2.1 and 1.7 validate and keep their order", () => {
   const ids = JSON.parse(run(cwd, "tasks", ID, "--json").stdout).map((t) => t.id);
   assert.deepEqual(ids, ["1.1", "1.2", "1.2.1", "1.7", "2.1", "2.2"]);
 });
+
+test("strict allows a line of exactly 100 characters and rejects 101", () => {
+  for (const [length, expected] of [
+    [100, "PASS\n"],
+    [101, `${CHANGE}/plan.md:18: line is 101 characters — keep lines at or under 100 characters\n`],
+  ]) {
+    const cwd = copyFixture("pass");
+    const plan = path.join(cwd, CHANGE, "plan.md");
+    fs.appendFileSync(plan, `\n${"x".repeat(length)}\n`);
+    assert.equal(run(cwd, "validate", ID, "--strict").stdout, expected, `length ${length}`);
+  }
+});
