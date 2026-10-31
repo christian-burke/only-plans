@@ -156,7 +156,12 @@ function create(ctx) {
 function taskCounts(root, id) {
   const file = path.join(changesDir(root), id, PLAN);
   const tasks = fs.existsSync(file) ? parsePlan(readLines(file)).tasks : [];
-  return { id, total: tasks.length, done: tasks.filter((t) => t.done).length };
+  return {
+    id,
+    path: relChange(id),
+    total: tasks.length,
+    done: tasks.filter((t) => t.done).length,
+  };
 }
 
 /** @param {Ctx} ctx */
