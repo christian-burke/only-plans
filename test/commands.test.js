@@ -611,6 +611,32 @@ test("archive --dry-run prints the destination, then refuses on unchecked tasks"
   assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", ID, "plan.md")));
 });
 
+test("archive --dry-run --force still prints the destination and moves nothing", () => {
+  const cwd = copyFixture("pass");
+  const result = run(cwd, "archive", ID, "--dry-run", "--force", "--date", "2026-01-01");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    result.stdout,
+    "would move docs/changes/add-login/ to docs/changes/archive/2026-01-01-add-login/\n",
+  );
+  assert.equal(result.stderr, "");
+  assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", ID, "plan.md")));
+  const moved = path.join(cwd, "docs", "changes", "archive", "2026-01-01-add-login");
+  assert.equal(fs.existsSync(moved), false);
+});
+
+test("a #### heading between tasks does not change their section", () => {
+  const cwd = copyFixture("task-sections");
+  const plan = path.join(cwd, "docs", "changes", ID, "plan.md");
+  const text = fs.readFileSync(plan, "utf8").replace("- [ ] 1.2", "#### Sub-step\n- [ ] 1.2");
+  fs.writeFileSync(plan, text);
+  const rows = JSON.parse(run(cwd, "tasks", ID, "--json").stdout);
+  const row = rows.find((r) => r.id === "1.2");
+  assert.equal(row.section, "Task 1: Login form");
+  assert.equal(row.section_line, 5);
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout.trim(), "PASS");
+});
+
 test("archive --dry-run refuses when the target already exists", () => {
   const cwd = copyFixture("unchecked-none");
   fs.mkdirSync(path.join(cwd, "docs", "changes", "archive", "2026-01-02-add-login"), {
