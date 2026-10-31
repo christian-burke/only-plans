@@ -6,9 +6,9 @@
 - [x] 2.1 Add --json to validate via one findingRow — proof: Findings carry the rendered path
 - [x] 2.2 Print [] and exit 0 for a clean change — proof: Clean change prints an empty array
 - [x] 2.3 Combine --json with --strict — proof: Strict findings serialize too
-- [ ] 3.1 Add --json to criteria; parser records given, when, then — proof: Scenario proof as JSON
-- [ ] 3.2 Print a path proof as JSON — proof: Path proof as JSON
-- [ ] 3.3 Keep criteria errors on stderr with --json — proof: Missing task fails the same way
+- [x] 3.1 Add --json to criteria; parser records given, when, then — proof: Scenario proof as JSON
+- [x] 3.2 Print a path proof as JSON — proof: Path proof as JSON
+- [x] 3.3 Keep criteria errors on stderr with --json — proof: Missing task fails the same way
 - [ ] 4.1 Add path to list --json rows — proof: Row has a path
 - [ ] 5.1 Show --json in USAGE for validate and criteria — proof: Completion offers the flag
 - [ ] 5.2 Document the three JSON shapes in README — proof: ./README.md

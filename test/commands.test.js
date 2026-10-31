@@ -455,3 +455,53 @@ test("text modes of validate, criteria, and list are unchanged", () => {
     ].join("\n"),
   );
 });
+
+test("criteria --json prints a scenario proof as one object", () => {
+  const cwd = copyFixture("pass");
+  const text = run(cwd, "criteria", ID, "1.2").stdout;
+  const result = run(cwd, "criteria", ID, "1.2", "--json");
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    kind: "scenario",
+    name: "Bad password",
+    file: `docs/changes/${ID}/spec.md`,
+    line: 19,
+    given: "a signed-out user",
+    when: "they submit a wrong password",
+    then: "an error is shown",
+    block: text.replace(/\n$/, ""),
+  });
+});
+
+test("criteria --json prints a path proof as one object", () => {
+  const result = run(copyFixture("pass"), "criteria", ID, "2.2", "--json");
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    kind: "path",
+    path: "test/login.test.js",
+    raw: "test/login.test.js::rejects",
+  });
+});
+
+test("criteria --json fails like text mode on a missing task", () => {
+  const result = run(copyFixture("pass"), "criteria", ID, "9.9", "--json");
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /plan\.md: no task 9\.9 — run onlyplans tasks add-login/);
+});
+
+test("criteria --json keeps a missing step keyword as null", () => {
+  const cwd = copyFixture("pass");
+  const spec = path.join(cwd, "docs", "changes", ID, "spec.md");
+  const lines = fs.readFileSync(spec, "utf8").split("\n");
+  const heading = lines.indexOf("#### Scenario: Bad password");
+  lines.splice(lines.indexOf("- GIVEN a signed-out user", heading), 1);
+  fs.writeFileSync(spec, lines.join("\n"));
+  const result = run(cwd, "criteria", ID, "1.2", "--json");
+  assert.equal(result.status, 0);
+  const proof = JSON.parse(result.stdout);
+  assert.ok(Object.hasOwn(proof, "given"));
+  assert.equal(proof.given, null);
+  assert.equal(proof.when, "they submit a wrong password");
+  assert.equal(proof.then, "an error is shown");
+});

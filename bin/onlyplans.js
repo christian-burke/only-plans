@@ -208,10 +208,20 @@ function criteria(ctx) {
     );
   }
   const proof = parseProof(task.fields.proof);
-  if (proof.kind === "path") return print(proof.raw);
+  if (proof.kind === "path") {
+    return print(
+      ctx.flags.json
+        ? JSON.stringify({ kind: "path", path: proof.target, raw: proof.raw }, null, 2)
+        : proof.raw,
+    );
+  }
   const scenario = scenariosOf(readSpec(change)).find((s) => s.name === proof.target);
   if (!scenario) throw new CliError(renderFinding(change, missingScenarioFinding(task, proof)));
-  print(scenario.block.join("\n"));
+  const block = scenario.block.join("\n");
+  if (!ctx.flags.json) return print(block);
+  const { name, line, given, when, then } = scenario;
+  const file = relFile(change, SPEC);
+  print(JSON.stringify({ kind: "scenario", name, file, line, given, when, then, block }, null, 2));
 }
 
 /**
@@ -383,7 +393,12 @@ const COMMANDS = {
   new: { arity: 1, flags: [], run: create },
   list: { arity: 0, flags: ["json"], run: list },
   tasks: { arity: 1, flags: ["json"], run: tasks, positional: [idCompletion] },
-  criteria: { arity: 2, flags: [], run: criteria, positional: [idCompletion, taskIdCompletion] },
+  criteria: {
+    arity: 2,
+    flags: ["json"],
+    run: criteria,
+    positional: [idCompletion, taskIdCompletion],
+  },
   done: { arity: 2, flags: [], run: done, positional: [idCompletion, taskIdCompletion] },
   validate: { arity: 1, flags: ["strict", "json"], run: validate, positional: [idCompletion] },
   archive: { arity: 1, flags: ["date", "force"], run: archive, positional: [idCompletion] },
