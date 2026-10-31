@@ -101,7 +101,10 @@ const CANDIDATES = [
     ["1.1", "1.2", "2.1", "2.2"],
   ],
   [["criteria", "nope", ""], []],
-  [["tasks", ID, "--"], ["--json"]],
+  [
+    ["tasks", ID, "--"],
+    ["--json", "--next"],
+  ],
   [["archive", ID, "--f"], ["--force"]],
   [["setup", ""], ["--tabcomplete"]],
   [["setup", "--"], ["--tabcomplete"]],
@@ -111,8 +114,11 @@ const CANDIDATES = [
   ],
   [["setup", "--tabcomplete", "p"], ["powershell"]],
   [["setup", "--tabcomplete", "zsh", ""], []],
-  [["tasks", ID, ""], ["--json"]],
-  [["tasks", ID, "--json", ""], []],
+  [
+    ["tasks", ID, ""],
+    ["--json", "--next"],
+  ],
+  [["tasks", ID, "--json", ""], ["--next"]],
   [["list", ""], ["--json"]],
   [["init", ""], ["--no-agents"]],
   [["init", "--no-agents", ""], []],
@@ -149,7 +155,7 @@ for (const [words, expected] of HINTS) {
 test("__complete stays silent when there is simply nothing left to offer", () => {
   const done = [
     ["init", "--no-agents", ""],
-    ["tasks", ID, "--json", ""],
+    ["tasks", ID, "--json", "--next", ""],
     ["new", ""],
   ];
   for (const words of done) {

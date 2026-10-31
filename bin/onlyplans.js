@@ -53,7 +53,7 @@ const USAGE = `usage: onlyplans <command> [args]
   init [--no-agents]                         create docs/changes/ and add an AGENTS.md section
   new <id>                                   create a change from the templates
   list [--json]                              active changes with task counts
-  tasks <id> [--json]                        the parsed task lines of a change
+  tasks <id> [--json] [--next]               the parsed task lines of a change
   criteria <id> <task> [--json]              the scenario a task's proof names
   done <id> <task>                           check one task's box in plan.md in place
   validate <id> [--strict] [--json]          check both files, print PASS or findings
@@ -194,7 +194,11 @@ function taskRow({ id, text, done, fields, line, section }) {
 function tasks(ctx) {
   const change = changeFromCtx(ctx);
   const plan = readPlan(change);
-  if (ctx.flags.json) {
+  if (ctx.flags.next) {
+    const next = plan.tasks.find((t) => !t.done) ?? null;
+    if (ctx.flags.json) printJson(next && taskRow(next));
+    else print(next ? next.raw : "all tasks checked");
+  } else if (ctx.flags.json) {
     printJson(plan.tasks.map(taskRow));
   } else {
     plan.tasks.forEach((t) => print(t.raw));
@@ -396,7 +400,7 @@ const COMMANDS = {
   init: { arity: 0, flags: ["no-agents"], run: init },
   new: { arity: 1, flags: [], run: create },
   list: { arity: 0, flags: ["json"], run: list },
-  tasks: { arity: 1, flags: ["json"], run: tasks, positional: [idCompletion] },
+  tasks: { arity: 1, flags: ["json", "next"], run: tasks, positional: [idCompletion] },
   criteria: {
     arity: 2,
     flags: ["json"],

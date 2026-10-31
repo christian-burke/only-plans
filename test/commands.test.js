@@ -560,3 +560,25 @@ test("tasks --json gives null section fields when the plan has no headings", () 
     assert.ok(Object.hasOwn(row, "section_line") && row.section_line === null, row.id);
   }
 });
+
+test("tasks --next prints the first unchecked task as text or one JSON object", () => {
+  const cwd = copyFixture("task-sections");
+  assert.equal(
+    run(cwd, "tasks", ID, "--next").stdout,
+    "- [ ] 1.2 Reject bad passwords — proof: Bad password\n",
+  );
+  const row = JSON.parse(run(cwd, "tasks", ID, "--next", "--json").stdout);
+  assert.equal(Array.isArray(row), false);
+  assert.equal(row.id, "1.2");
+  assert.equal(row.section, "Task 1: Login form");
+});
+
+test("tasks --next reports when every task is checked", () => {
+  const cwd = copyFixture("unchecked-none");
+  const text = run(cwd, "tasks", ID, "--next");
+  assert.equal(text.status, 0);
+  assert.equal(text.stdout, "all tasks checked\n");
+  const json = run(cwd, "tasks", ID, "--next", "--json");
+  assert.equal(json.status, 0);
+  assert.equal(json.stdout, "null\n");
+});
