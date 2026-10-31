@@ -110,6 +110,13 @@ function today() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** The `DATE` shape alone accepts 2026-99-99; round-tripping through a Date rejects it. */
+function isCalendarDate(/** @type {string} */ date) {
+  const [y, m, d] = date.split("-").map(Number);
+  const utc = new Date(Date.UTC(y, m - 1, d));
+  return utc.getUTCFullYear() === y && utc.getUTCMonth() === m - 1 && utc.getUTCDate() === d;
+}
+
 /** @param {Ctx} ctx */
 function init(ctx) {
   const own = locateRoot(ctx.cwd) === ctx.cwd;
@@ -279,7 +286,8 @@ function validate(ctx) {
 function archive(ctx) {
   const change = changeFromCtx(ctx);
   const date = typeof ctx.flags.date === "string" ? ctx.flags.date : today();
-  if (!DATE.test(date)) throw new CliError(`${date}: --date must be YYYY-MM-DD`, EXIT.usage);
+  if (!DATE.test(date) || !isCalendarDate(date))
+    throw new CliError(`${date}: --date must be YYYY-MM-DD`, EXIT.usage);
   const targetName = `${date}-${change.id}`;
   const target = path.join(archiveDir(change.root), targetName);
   const dryRun = ctx.flags["dry-run"];

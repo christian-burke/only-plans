@@ -737,3 +737,14 @@ test("a filesystem error prints one line without a stack trace", (t) => {
   assert.match(result.stderr, /plan\.md/);
   assert.doesNotMatch(result.stderr, / {4}at /);
 });
+
+test("archive refuses a date that is not on the calendar", () => {
+  const cwd = copyFixture("unchecked-none");
+  for (const date of ["2026-99-99", "2026-02-30"]) {
+    const result = run(cwd, "archive", ID, "--dry-run", "--date", date);
+    assert.equal(result.status, 2, date);
+    assert.match(result.stderr, /--date must be YYYY-MM-DD/);
+    assert.equal(result.stdout, "");
+  }
+  assert.equal(run(cwd, "archive", ID, "--dry-run", "--date", "2024-02-29").status, 0);
+});
