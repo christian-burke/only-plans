@@ -174,3 +174,14 @@ test("a real task line is unaffected by the task-like candidate test", () => {
   const rows = JSON.parse(run(copyFixture("pass"), "tasks", ID, "--json").stdout);
   assert.equal(rows.length, 4);
 });
+
+test("a leading byte order mark does not hide the title", () => {
+  const cwd = copyFixture("pass");
+  for (const file of ["spec.md", "plan.md"]) {
+    const target = path.join(cwd, CHANGE, file);
+    const bom = Buffer.from([0xef, 0xbb, 0xbf]);
+    fs.writeFileSync(target, Buffer.concat([bom, fs.readFileSync(target)]));
+  }
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  assert.match(run(cwd, "criteria", ID, "1.1").stdout, /^#### Scenario:/);
+});
