@@ -99,6 +99,11 @@ function print(text) {
   process.stdout.write(`${text}\n`);
 }
 
+/** @param {unknown} value */
+function printJson(value) {
+  print(JSON.stringify(value, null, 2));
+}
+
 function today() {
   const d = new Date();
   const pad = (/** @type {number} */ n) => String(n).padStart(2, "0");
@@ -168,7 +173,7 @@ function taskCounts(root, id) {
 function list(ctx) {
   const root = requireRoot(ctx.cwd);
   const rows = activeIds(root).map((id) => taskCounts(root, id));
-  if (ctx.flags.json) print(JSON.stringify(rows, null, 2));
+  if (ctx.flags.json) printJson(rows);
   else rows.forEach((r) => print(`${r.id} ${r.done}/${r.total}`));
 }
 
@@ -184,7 +189,7 @@ function tasks(ctx) {
       fields,
       line,
     }));
-    print(JSON.stringify(rows, null, 2));
+    printJson(rows);
   } else {
     plan.tasks.forEach((t) => print(t.raw));
   }
@@ -214,11 +219,8 @@ function criteria(ctx) {
   }
   const proof = parseProof(task.fields.proof);
   if (proof.kind === "path") {
-    return print(
-      ctx.flags.json
-        ? JSON.stringify({ kind: "path", path: proof.target, raw: proof.raw }, null, 2)
-        : proof.raw,
-    );
+    if (!ctx.flags.json) return print(proof.raw);
+    return printJson({ kind: "path", path: proof.target, raw: proof.raw });
   }
   const scenario = scenariosOf(readSpec(change)).find((s) => s.name === proof.target);
   if (!scenario) throw new CliError(renderFinding(change, missingScenarioFinding(task, proof)));
@@ -226,7 +228,7 @@ function criteria(ctx) {
   if (!ctx.flags.json) return print(block);
   const { name, line, given, when, then } = scenario;
   const file = relFile(change, SPEC);
-  print(JSON.stringify({ kind: "scenario", name, file, line, given, when, then, block }, null, 2));
+  printJson({ kind: "scenario", name, file, line, given, when, then, block });
 }
 
 /**
@@ -257,19 +259,10 @@ function done(ctx) {
 function validate(ctx) {
   const change = changeFromCtx(ctx);
   const findings = validateChange(change, Boolean(ctx.flags.strict));
-  if (ctx.flags.json) {
-    print(
-      JSON.stringify(
-        findings.map((f) => findingRow(change, f)),
-        null,
-        2,
-      ),
-    );
-    return findings.length ? EXIT.fail : EXIT.ok;
-  }
-  if (!findings.length) return print("PASS");
-  findings.forEach((f) => print(renderFinding(change, f)));
-  return EXIT.fail;
+  if (ctx.flags.json) printJson(findings.map((f) => findingRow(change, f)));
+  else if (!findings.length) print("PASS");
+  else findings.forEach((f) => print(renderFinding(change, f)));
+  return findings.length ? EXIT.fail : EXIT.ok;
 }
 
 /** @param {Ctx} ctx */
