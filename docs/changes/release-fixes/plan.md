@@ -7,8 +7,8 @@
 - [x] 2.1 Print one line for non-CliError failures in main — proof: Read-only plan on done
 - [x] 3.1 Strip a leading BOM in readLines — proof: BOM file validates
 - [x] 4.1 Refuse an impossible --date — proof: Impossible date refused
-- [ ] 5.1 Fix README and the AGENTS template — proof: Template says what the tool does
-- [ ] 5.2 Add the changelog entries under 0.2.1 — proof: ./CHANGELOG.md
+- [x] 5.1 Fix README and the AGENTS template — proof: Template says what the tool does
+- [x] 5.2 Add the changelog entries under 0.2.1 — proof: ./CHANGELOG.md
 
 ## Close-Out
 

@@ -84,7 +84,7 @@ that is not followed by `key:` is part of the task text. `proof` is required and
 scenario in `spec.md`, or a path from the repo root. A proof with `/` or `::` is a path; the
 path need not exist yet, since the task often creates it. Other fields are kept and ignored. Ids
 ascend by their numeric parts and may leave gaps, so a task inserted as `1.2.1` sits between
-`1.2` and `1.3` and nothing is renumbered. Only `[x]` counts as done.
+`1.2` and `1.3` and nothing is renumbered. `[x]` or `[X]` counts as done.
 A task may wrap. The non-blank lines directly below it that do not start a list item or a
 heading belong to it, indented or not, the way Markdown reads them. The tool joins them with
 single spaces before it reads the fields, so a proof on a wrapped line counts, and the task's

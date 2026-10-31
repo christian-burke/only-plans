@@ -748,3 +748,12 @@ test("archive refuses a date that is not on the calendar", () => {
   }
   assert.equal(run(cwd, "archive", ID, "--dry-run", "--date", "2024-02-29").status, 0);
 });
+
+test("the AGENTS.md section describes --next, [X], and what archive checks", () => {
+  const cwd = freshDir();
+  run(cwd, "init");
+  const text = agentsText(cwd);
+  assert.match(text, /tasks <id> --next/);
+  assert.match(text, /\[X\]/);
+  assert.match(text, /ignores the Close-Out box/);
+});
