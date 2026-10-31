@@ -177,19 +177,25 @@ function list(ctx) {
   else rows.forEach((r) => print(`${r.id} ${r.done}/${r.total}`));
 }
 
+/** @param {Task} t */
+function taskRow({ id, text, done, fields, line, section }) {
+  return {
+    id,
+    text,
+    done,
+    fields,
+    line,
+    section: section?.text ?? null,
+    section_line: section?.line ?? null,
+  };
+}
+
 /** @param {Ctx} ctx */
 function tasks(ctx) {
   const change = changeFromCtx(ctx);
   const plan = readPlan(change);
   if (ctx.flags.json) {
-    const rows = plan.tasks.map(({ id, text, done, fields, line }) => ({
-      id,
-      text,
-      done,
-      fields,
-      line,
-    }));
-    printJson(rows);
+    printJson(plan.tasks.map(taskRow));
   } else {
     plan.tasks.forEach((t) => print(t.raw));
   }

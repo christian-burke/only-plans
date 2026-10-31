@@ -174,6 +174,8 @@ test("tasks --json preserves unknown fields", () => {
     done: true,
     fields: { proof: "Form renders", kind: "ui" },
     line: 5,
+    section: null,
+    section_line: null,
   });
   assert.deepEqual(rows[3].fields, { proof: "test/login.test.js::rejects" });
 });
@@ -529,4 +531,32 @@ test("### headings under Tasks leave validation and text output alone", () => {
   const cwd = copyFixture("task-sections");
   assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
   assert.equal(run(cwd, "tasks", ID).stdout, run(copyFixture("pass"), "tasks", ID).stdout);
+});
+
+test("tasks --json carries the nearest ### heading as section", () => {
+  const rows = JSON.parse(run(copyFixture("task-sections"), "tasks", ID, "--json").stdout);
+  const sections = rows.map((r) => [r.id, r.section, r.section_line]);
+  assert.deepEqual(sections, [
+    ["1.1", "Task 1: Login form", 5],
+    ["1.2", "Task 1: Login form", 5],
+    ["2.1", "Task 2: Sessions", 10],
+    ["2.2", "Task 2: Sessions", 10],
+  ]);
+  assert.deepEqual(Object.keys(rows[0]), [
+    "id",
+    "text",
+    "done",
+    "fields",
+    "line",
+    "section",
+    "section_line",
+  ]);
+});
+
+test("tasks --json gives null section fields when the plan has no headings", () => {
+  const rows = JSON.parse(run(copyFixture("pass"), "tasks", ID, "--json").stdout);
+  for (const row of rows) {
+    assert.ok(Object.hasOwn(row, "section") && row.section === null, row.id);
+    assert.ok(Object.hasOwn(row, "section_line") && row.section_line === null, row.id);
+  }
 });
