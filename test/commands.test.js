@@ -507,3 +507,13 @@ test("criteria --json keeps a missing step keyword as null", () => {
   assert.equal(proof.when, "they submit a wrong password");
   assert.equal(proof.then, "an error is shown");
 });
+
+test("criteria --json joins a wrapped step's continuation lines", () => {
+  const cwd = copyFixture("pass");
+  const spec = path.join(cwd, "docs", "changes", ID, "spec.md");
+  const text = fs.readFileSync(spec, "utf8");
+  fs.writeFileSync(spec, text.replace("- THEN an error is shown", "- THEN an error\n  is shown"));
+  const proof = JSON.parse(run(cwd, "criteria", ID, "1.2", "--json").stdout);
+  assert.equal(proof.then, "an error is shown");
+  assert.ok(proof.block.endsWith("- THEN an error\n  is shown"));
+});
