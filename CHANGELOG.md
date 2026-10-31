@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1
 
 - `validate --strict` accepts a line of exactly 100 characters and reports only longer ones, so a
   repo formatted at width 100 passes. The fix text now says "at or under 100".
@@ -12,6 +12,13 @@
 - `criteria --json` prints the scenario a task's proof names as one object with its `given`,
   `when`, and `then` text, or the `path` and `raw` of a path proof.
 - `list --json` rows carry a `path` to the change folder.
+- `tasks --json` rows carry `section` and `section_line`, the `###` heading a task sits under
+  inside `## Tasks`, or `null` for both without one.
+- `tasks --next` prints the first unchecked task, or `all tasks checked`. With `--json` it prints
+  that task's row, or `null`.
+- `archive --dry-run` prints `would move <from> to <to>`, runs every check, and moves nothing.
+- The `--help` columns were re-aligned and the archive synopsis now reads `[--date D]`; the date
+  format is unchanged.
 
 ## 0.2.0
 

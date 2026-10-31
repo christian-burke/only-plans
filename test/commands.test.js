@@ -174,6 +174,8 @@ test("tasks --json preserves unknown fields", () => {
     done: true,
     fields: { proof: "Form renders", kind: "ui" },
     line: 5,
+    section: null,
+    section_line: null,
   });
   assert.deepEqual(rows[3].fields, { proof: "test/login.test.js::rejects" });
 });
@@ -523,4 +525,139 @@ test("--help lists --json on validate and criteria", () => {
   const { stdout } = run(cwd, "--help");
   assert.ok(stdout.includes("validate <id> [--strict] [--json]"));
   assert.ok(stdout.includes("criteria <id> <task> [--json]"));
+});
+
+test("### headings under Tasks leave validation and text output alone", () => {
+  const cwd = copyFixture("task-sections");
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  assert.equal(run(cwd, "tasks", ID).stdout, run(copyFixture("pass"), "tasks", ID).stdout);
+});
+
+test("tasks --json carries the nearest ### heading as section", () => {
+  const rows = JSON.parse(run(copyFixture("task-sections"), "tasks", ID, "--json").stdout);
+  const sections = rows.map((r) => [r.id, r.section, r.section_line]);
+  assert.deepEqual(sections, [
+    ["1.1", "Task 1: Login form", 5],
+    ["1.2", "Task 1: Login form", 5],
+    ["2.1", "Task 2: Sessions", 10],
+    ["2.2", "Task 2: Sessions", 10],
+  ]);
+  assert.deepEqual(Object.keys(rows[0]), [
+    "id",
+    "text",
+    "done",
+    "fields",
+    "line",
+    "section",
+    "section_line",
+  ]);
+});
+
+test("tasks --json gives null section fields when the plan has no headings", () => {
+  const rows = JSON.parse(run(copyFixture("pass"), "tasks", ID, "--json").stdout);
+  for (const row of rows) {
+    assert.ok(Object.hasOwn(row, "section") && row.section === null, row.id);
+    assert.ok(Object.hasOwn(row, "section_line") && row.section_line === null, row.id);
+  }
+});
+
+test("tasks --next prints the first unchecked task as text or one JSON object", () => {
+  const cwd = copyFixture("task-sections");
+  assert.equal(
+    run(cwd, "tasks", ID, "--next").stdout,
+    "- [ ] 1.2 Reject bad passwords — proof: Bad password\n",
+  );
+  const row = JSON.parse(run(cwd, "tasks", ID, "--next", "--json").stdout);
+  assert.equal(Array.isArray(row), false);
+  assert.equal(row.id, "1.2");
+  assert.equal(row.section, "Task 1: Login form");
+});
+
+test("tasks --next reports when every task is checked", () => {
+  const cwd = copyFixture("unchecked-none");
+  const text = run(cwd, "tasks", ID, "--next");
+  assert.equal(text.status, 0);
+  assert.equal(text.stdout, "all tasks checked\n");
+  const json = run(cwd, "tasks", ID, "--next", "--json");
+  assert.equal(json.status, 0);
+  assert.equal(json.stdout, "null\n");
+});
+
+test("archive --dry-run prints the destination and changes nothing when it would succeed", () => {
+  const cwd = copyFixture("unchecked-none");
+  fs.rmSync(path.join(cwd, "docs", "changes", "archive"), { recursive: true, force: true });
+  const result = run(cwd, "archive", ID, "--dry-run", "--date", "2026-01-01");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    result.stdout,
+    "would move docs/changes/add-login/ to docs/changes/archive/2026-01-01-add-login/\n",
+  );
+  assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", ID, "plan.md")));
+  assert.equal(fs.existsSync(path.join(cwd, "docs", "changes", "archive")), false);
+});
+
+test("archive --dry-run prints the destination, then refuses on unchecked tasks", () => {
+  const cwd = copyFixture("pass");
+  const result = run(cwd, "archive", ID, "--dry-run", "--date", "2026-01-01");
+  assert.equal(result.status, 1);
+  assert.equal(
+    result.stdout,
+    "would move docs/changes/add-login/ to docs/changes/archive/2026-01-01-add-login/\n",
+  );
+  assert.match(
+    result.stderr,
+    /^docs\/changes\/add-login\/plan\.md:6: unchecked tasks 1\.2, 2\.1, 2\.2 — /,
+  );
+  assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", ID, "plan.md")));
+});
+
+test("archive --dry-run --force still prints the destination and moves nothing", () => {
+  const cwd = copyFixture("pass");
+  const result = run(cwd, "archive", ID, "--dry-run", "--force", "--date", "2026-01-01");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    result.stdout,
+    "would move docs/changes/add-login/ to docs/changes/archive/2026-01-01-add-login/\n",
+  );
+  assert.equal(result.stderr, "");
+  assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", ID, "plan.md")));
+  const moved = path.join(cwd, "docs", "changes", "archive", "2026-01-01-add-login");
+  assert.equal(fs.existsSync(moved), false);
+});
+
+test("a #### heading between tasks does not change their section", () => {
+  const cwd = copyFixture("task-sections");
+  const plan = path.join(cwd, "docs", "changes", ID, "plan.md");
+  const text = fs.readFileSync(plan, "utf8").replace("- [ ] 1.2", "#### Sub-step\n- [ ] 1.2");
+  fs.writeFileSync(plan, text);
+  const rows = JSON.parse(run(cwd, "tasks", ID, "--json").stdout);
+  const row = rows.find((r) => r.id === "1.2");
+  assert.equal(row.section, "Task 1: Login form");
+  assert.equal(row.section_line, 5);
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout.trim(), "PASS");
+});
+
+test("archive --dry-run refuses when the target already exists", () => {
+  const cwd = copyFixture("unchecked-none");
+  fs.mkdirSync(path.join(cwd, "docs", "changes", "archive", "2026-01-02-add-login"), {
+    recursive: true,
+  });
+  const result = run(cwd, "archive", ID, "--dry-run", "--date", "2026-01-02");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /2026-01-02-add-login: already exists/);
+  assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", ID, "plan.md")));
+});
+
+test("--help lists --next on tasks and --dry-run on archive", () => {
+  const out = run(copyFixture("pass"), "--help").stdout;
+  assert.match(out, /^  tasks <id> \[--json\] \[--next\] +the parsed task lines/m);
+  assert.match(out, /^  archive <id> \[--date D\] \[--force\] \[--dry-run\] +move a finished/m);
+});
+
+test("the changelog's first entry is the package version", () => {
+  const root = path.join(__dirname, "..");
+  const { version } = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
+  const first = changelog.match(/^## (.+)$/m);
+  assert.equal(first && first[1], version);
 });

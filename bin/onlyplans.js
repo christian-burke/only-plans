@@ -50,15 +50,15 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const USAGE = `usage: onlyplans <command> [args]
 
-  init [--no-agents]                         create docs/changes/ and add an AGENTS.md section
-  new <id>                                   create a change from the templates
-  list [--json]                              active changes with task counts
-  tasks <id> [--json]                        the parsed task lines of a change
-  criteria <id> <task> [--json]              the scenario a task's proof names
-  done <id> <task>                           check one task's box in plan.md in place
-  validate <id> [--strict] [--json]          check both files, print PASS or findings
-  archive <id> [--date YYYY-MM-DD] [--force] move a finished change to the archive
-  setup --tabcomplete <zsh|bash|powershell>  add tab completion to your shell profile
+  init [--no-agents]                             create docs/changes/ and add an AGENTS.md section
+  new <id>                                       create a change from the templates
+  list [--json]                                  active changes with task counts
+  tasks <id> [--json] [--next]                   the parsed task lines of a change
+  criteria <id> <task> [--json]                  the scenario a task's proof names
+  done <id> <task>                               check one task's box in plan.md in place
+  validate <id> [--strict] [--json]              check both files, print PASS or findings
+  archive <id> [--date D] [--force] [--dry-run]  move a finished change to the archive
+  setup --tabcomplete <zsh|bash|powershell>      add tab completion to your shell profile
 
 <id> may also be given as a path, such as docs/changes/<id>/.
 --help prints this. --version prints the version.`;
@@ -177,19 +177,29 @@ function list(ctx) {
   else rows.forEach((r) => print(`${r.id} ${r.done}/${r.total}`));
 }
 
+/** @param {Task} t */
+function taskRow({ id, text, done, fields, line, section }) {
+  return {
+    id,
+    text,
+    done,
+    fields,
+    line,
+    section: section?.text ?? null,
+    section_line: section?.line ?? null,
+  };
+}
+
 /** @param {Ctx} ctx */
 function tasks(ctx) {
   const change = changeFromCtx(ctx);
   const plan = readPlan(change);
-  if (ctx.flags.json) {
-    const rows = plan.tasks.map(({ id, text, done, fields, line }) => ({
-      id,
-      text,
-      done,
-      fields,
-      line,
-    }));
-    printJson(rows);
+  if (ctx.flags.next) {
+    const next = plan.tasks.find((t) => !t.done) ?? null;
+    if (ctx.flags.json) printJson(next && taskRow(next));
+    else print(next ? next.raw : "all tasks checked");
+  } else if (ctx.flags.json) {
+    printJson(plan.tasks.map(taskRow));
   } else {
     plan.tasks.forEach((t) => print(t.raw));
   }
@@ -270,6 +280,10 @@ function archive(ctx) {
   const change = changeFromCtx(ctx);
   const date = typeof ctx.flags.date === "string" ? ctx.flags.date : today();
   if (!DATE.test(date)) throw new CliError(`${date}: --date must be YYYY-MM-DD`, EXIT.usage);
+  const targetName = `${date}-${change.id}`;
+  const target = path.join(archiveDir(change.root), targetName);
+  const dryRun = ctx.flags["dry-run"];
+  if (dryRun) print(`would move ${relChange(change.id)}/ to ${relArchived(targetName)}/`);
   const unchecked = readPlan(change).tasks.filter((t) => !t.done);
   if (unchecked.length && !ctx.flags.force) {
     const ids = unchecked.map((t) => t.id).join(", ");
@@ -278,11 +292,10 @@ function archive(ctx) {
         " — check them or pass --force",
     );
   }
-  const targetName = `${date}-${change.id}`;
-  const target = path.join(archiveDir(change.root), targetName);
   if (fs.existsSync(target)) {
     throw new CliError(`${relArchived(targetName)}: already exists — pass a different --date`);
   }
+  if (dryRun) return;
   fs.mkdirSync(archiveDir(change.root), { recursive: true });
   fs.renameSync(change.dir, target);
   print(`${relArchived(targetName)}/`);
@@ -390,7 +403,7 @@ const COMMANDS = {
   init: { arity: 0, flags: ["no-agents"], run: init },
   new: { arity: 1, flags: [], run: create },
   list: { arity: 0, flags: ["json"], run: list },
-  tasks: { arity: 1, flags: ["json"], run: tasks, positional: [idCompletion] },
+  tasks: { arity: 1, flags: ["json", "next"], run: tasks, positional: [idCompletion] },
   criteria: {
     arity: 2,
     flags: ["json"],
@@ -399,7 +412,12 @@ const COMMANDS = {
   },
   done: { arity: 2, flags: [], run: done, positional: [idCompletion, taskIdCompletion] },
   validate: { arity: 1, flags: ["strict", "json"], run: validate, positional: [idCompletion] },
-  archive: { arity: 1, flags: ["date", "force"], run: archive, positional: [idCompletion] },
+  archive: {
+    arity: 1,
+    flags: ["date", "force", "dry-run"],
+    run: archive,
+    positional: [idCompletion],
+  },
   setup: { arity: 0, flags: ["tabcomplete"], run: setup },
 };
 
