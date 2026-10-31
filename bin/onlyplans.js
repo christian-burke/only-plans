@@ -25,6 +25,7 @@ const {
   changeFromCtx,
   readPlan,
   readSpec,
+  findingRow,
   renderFinding,
 } = require("../lib/repo");
 const { validateChange, missingScenarioFinding } = require("../lib/validate");
@@ -53,9 +54,9 @@ const USAGE = `usage: onlyplans <command> [args]
   new <id>                                   create a change from the templates
   list [--json]                              active changes with task counts
   tasks <id> [--json]                        the parsed task lines of a change
-  criteria <id> <task>                       the scenario a task's proof names
+  criteria <id> <task> [--json]              the scenario a task's proof names
   done <id> <task>                           check one task's box in plan.md in place
-  validate <id> [--strict]                   check both files, print PASS or findings
+  validate <id> [--strict] [--json]          check both files, print PASS or findings
   archive <id> [--date YYYY-MM-DD] [--force] move a finished change to the archive
   setup --tabcomplete <zsh|bash|powershell>  add tab completion to your shell profile
 
@@ -96,6 +97,11 @@ function dotSourceLine(file) {
 /** @param {string} text */
 function print(text) {
   process.stdout.write(`${text}\n`);
+}
+
+/** @param {unknown} value */
+function printJson(value) {
+  print(JSON.stringify(value, null, 2));
 }
 
 function today() {
@@ -155,14 +161,19 @@ function create(ctx) {
 function taskCounts(root, id) {
   const file = path.join(changesDir(root), id, PLAN);
   const tasks = fs.existsSync(file) ? parsePlan(readLines(file)).tasks : [];
-  return { id, total: tasks.length, done: tasks.filter((t) => t.done).length };
+  return {
+    id,
+    total: tasks.length,
+    done: tasks.filter((t) => t.done).length,
+    path: relChange(id),
+  };
 }
 
 /** @param {Ctx} ctx */
 function list(ctx) {
   const root = requireRoot(ctx.cwd);
   const rows = activeIds(root).map((id) => taskCounts(root, id));
-  if (ctx.flags.json) print(JSON.stringify(rows, null, 2));
+  if (ctx.flags.json) printJson(rows);
   else rows.forEach((r) => print(`${r.id} ${r.done}/${r.total}`));
 }
 
@@ -178,7 +189,7 @@ function tasks(ctx) {
       fields,
       line,
     }));
-    print(JSON.stringify(rows, null, 2));
+    printJson(rows);
   } else {
     plan.tasks.forEach((t) => print(t.raw));
   }
@@ -207,10 +218,17 @@ function criteria(ctx) {
     );
   }
   const proof = parseProof(task.fields.proof);
-  if (proof.kind === "path") return print(proof.raw);
+  if (proof.kind === "path") {
+    if (!ctx.flags.json) return print(proof.raw);
+    return printJson({ kind: "path", path: proof.target, raw: proof.raw });
+  }
   const scenario = scenariosOf(readSpec(change)).find((s) => s.name === proof.target);
   if (!scenario) throw new CliError(renderFinding(change, missingScenarioFinding(task, proof)));
-  print(scenario.block.join("\n"));
+  const block = scenario.block.join("\n");
+  if (!ctx.flags.json) return print(block);
+  const { name, line, given, when, then } = scenario;
+  const file = relFile(change, SPEC);
+  printJson({ kind: "scenario", name, file, line, given, when, then, block });
 }
 
 /**
@@ -241,9 +259,10 @@ function done(ctx) {
 function validate(ctx) {
   const change = changeFromCtx(ctx);
   const findings = validateChange(change, Boolean(ctx.flags.strict));
-  if (!findings.length) return print("PASS");
-  findings.forEach((f) => print(renderFinding(change, f)));
-  return EXIT.fail;
+  if (ctx.flags.json) printJson(findings.map((f) => findingRow(change, f)));
+  else if (!findings.length) print("PASS");
+  else findings.forEach((f) => print(renderFinding(change, f)));
+  return findings.length ? EXIT.fail : EXIT.ok;
 }
 
 /** @param {Ctx} ctx */
@@ -372,9 +391,14 @@ const COMMANDS = {
   new: { arity: 1, flags: [], run: create },
   list: { arity: 0, flags: ["json"], run: list },
   tasks: { arity: 1, flags: ["json"], run: tasks, positional: [idCompletion] },
-  criteria: { arity: 2, flags: [], run: criteria, positional: [idCompletion, taskIdCompletion] },
+  criteria: {
+    arity: 2,
+    flags: ["json"],
+    run: criteria,
+    positional: [idCompletion, taskIdCompletion],
+  },
   done: { arity: 2, flags: [], run: done, positional: [idCompletion, taskIdCompletion] },
-  validate: { arity: 1, flags: ["strict"], run: validate, positional: [idCompletion] },
+  validate: { arity: 1, flags: ["strict", "json"], run: validate, positional: [idCompletion] },
   archive: { arity: 1, flags: ["date", "force"], run: archive, positional: [idCompletion] },
   setup: { arity: 0, flags: ["tabcomplete"], run: setup },
 };

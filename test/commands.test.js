@@ -161,7 +161,9 @@ test("new refuses an id that is not kebab-case", () => {
 test("list reports task counts as text and JSON", () => {
   const cwd = copyFixture("pass");
   assert.equal(run(cwd, "list").stdout, `${ID} 1/4\n`);
-  assert.deepEqual(JSON.parse(run(cwd, "list", "--json").stdout), [{ id: ID, total: 4, done: 1 }]);
+  const rows = JSON.parse(run(cwd, "list", "--json").stdout);
+  assert.deepEqual(rows, [{ id: ID, total: 4, done: 1, path: `docs/changes/${ID}` }]);
+  assert.deepEqual(Object.keys(rows[0]), ["id", "total", "done", "path"]);
 });
 
 test("tasks --json preserves unknown fields", () => {
@@ -437,4 +439,88 @@ test("npm pack ships every file under lib/ and nothing outside the allowlist", (
   // Everything else in the checkout (docs/, test/, .githooks/, AGENTS.md, configs) stays out.
   const allowed = /^(bin|lib|templates|completion)\/|^(LICENSE|README\.md|package\.json)$/;
   for (const file of shipped) assert.match(file, allowed, `${file} should not be in the package`);
+});
+
+test("text modes of validate, criteria, and list are unchanged", () => {
+  const cwd = copyFixture("pass");
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  assert.equal(run(cwd, "list").stdout, `${ID} 1/4\n`);
+  assert.equal(
+    run(cwd, "criteria", ID, "1.2").stdout,
+    [
+      "#### Scenario: Bad password",
+      "",
+      "- GIVEN a signed-out user",
+      "- WHEN they submit a wrong password",
+      "- THEN an error is shown",
+      "",
+    ].join("\n"),
+  );
+});
+
+test("criteria --json prints a scenario proof as one object", () => {
+  const cwd = copyFixture("pass");
+  const text = run(cwd, "criteria", ID, "1.2").stdout;
+  const result = run(cwd, "criteria", ID, "1.2", "--json");
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    kind: "scenario",
+    name: "Bad password",
+    file: `docs/changes/${ID}/spec.md`,
+    line: 19,
+    given: "a signed-out user",
+    when: "they submit a wrong password",
+    then: "an error is shown",
+    block: text.replace(/\n$/, ""),
+  });
+});
+
+test("criteria --json prints a path proof as one object", () => {
+  const result = run(copyFixture("pass"), "criteria", ID, "2.2", "--json");
+  assert.equal(result.status, 0);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    kind: "path",
+    path: "test/login.test.js",
+    raw: "test/login.test.js::rejects",
+  });
+});
+
+test("criteria --json fails like text mode on a missing task", () => {
+  const result = run(copyFixture("pass"), "criteria", ID, "9.9", "--json");
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /plan\.md: no task 9\.9 — run onlyplans tasks add-login/);
+});
+
+test("criteria --json keeps a missing step keyword as null", () => {
+  const cwd = copyFixture("pass");
+  const spec = path.join(cwd, "docs", "changes", ID, "spec.md");
+  const lines = fs.readFileSync(spec, "utf8").split("\n");
+  const heading = lines.indexOf("#### Scenario: Bad password");
+  lines.splice(lines.indexOf("- GIVEN a signed-out user", heading), 1);
+  fs.writeFileSync(spec, lines.join("\n"));
+  const result = run(cwd, "criteria", ID, "1.2", "--json");
+  assert.equal(result.status, 0);
+  const proof = JSON.parse(result.stdout);
+  assert.ok(Object.hasOwn(proof, "given"));
+  assert.equal(proof.given, null);
+  assert.equal(proof.when, "they submit a wrong password");
+  assert.equal(proof.then, "an error is shown");
+});
+
+test("criteria --json joins a wrapped step's continuation lines", () => {
+  const cwd = copyFixture("pass");
+  const spec = path.join(cwd, "docs", "changes", ID, "spec.md");
+  const text = fs.readFileSync(spec, "utf8");
+  fs.writeFileSync(spec, text.replace("- THEN an error is shown", "- THEN an error\n  is shown"));
+  const proof = JSON.parse(run(cwd, "criteria", ID, "1.2", "--json").stdout);
+  assert.equal(proof.then, "an error is shown");
+  assert.ok(proof.block.endsWith("- THEN an error\n  is shown"));
+});
+
+test("--help lists --json on validate and criteria", () => {
+  const cwd = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "onlyplans-help-"));
+  const { stdout } = run(cwd, "--help");
+  assert.ok(stdout.includes("validate <id> [--strict] [--json]"));
+  assert.ok(stdout.includes("criteria <id> <task> [--json]"));
 });

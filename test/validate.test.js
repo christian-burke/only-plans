@@ -115,3 +115,31 @@ test("strict allows a line of exactly 100 characters and rejects 101", () => {
     assert.equal(run(cwd, "validate", ID, "--strict").stdout, expected, `length ${length}`);
   }
 });
+
+test("validate --json prints [] and exits 0 on a clean change", () => {
+  const result = run(copyFixture("pass"), "validate", ID, "--strict", "--json");
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout, "[]\n");
+});
+
+test("validate --json serializes findings with the rendered path", () => {
+  const cwd = copyFixture("proof-scenario-missing");
+  const text = run(cwd, "validate", ID);
+  const json = run(cwd, "validate", ID, "--json");
+  assert.equal(json.status, 1);
+  const [finding, ...rest] = JSON.parse(json.stdout);
+  assert.deepEqual(rest, []);
+  assert.equal(finding.file, `${CHANGE}/plan.md`);
+  assert.equal(finding.line, 6);
+  assert.equal(finding.what, 'no scenario named "Wrong password"');
+  assert.equal(finding.fix, "name a scenario from spec.md");
+  assert.equal(text.stdout, `${finding.file}:${finding.line}: ${finding.what} — ${finding.fix}\n`);
+});
+
+test("validate --json combines with --strict", () => {
+  const cwd = copyFixture("strict-orphan-scenario");
+  assert.equal(run(cwd, "validate", ID, "--json").stdout, "[]\n");
+  const strict = JSON.parse(run(cwd, "validate", ID, "--strict", "--json").stdout);
+  assert.equal(strict.length, 1);
+  assert.ok(strict[0].file.endsWith("/spec.md"));
+});
