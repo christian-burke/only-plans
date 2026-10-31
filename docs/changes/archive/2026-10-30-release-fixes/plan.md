@@ -12,7 +12,7 @@
 
 ## Close-Out
 
-- [ ] Every proof passes.
+- [x] Every proof passes.
 
 ## Notes
 
