@@ -150,3 +150,27 @@ test("validate --json combines with --strict", () => {
   assert.equal(strict.length, 1);
   assert.ok(strict[0].file.endsWith("/spec.md"));
 });
+
+for (const [label, line] of [
+  ["an indented task line", "  - [ ] 1.2.1 Nested — proof: Bad password"],
+  ["a star bullet task line", "* [ ] 1.3 Starred — proof: Bad password"],
+]) {
+  test(`validate reports ${label} as malformed instead of skipping it`, () => {
+    const cwd = copyFixture("pass");
+    const plan = path.join(cwd, CHANGE, "plan.md");
+    const lines = fs.readFileSync(plan, "utf8").split("\n");
+    lines.splice(6, 0, line);
+    fs.writeFileSync(plan, lines.join("\n"));
+    const result = run(cwd, "validate", ID);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(
+      result.stdout,
+      /^docs\/changes\/add-login\/plan\.md:7: task line does not match the grammar/,
+    );
+  });
+}
+
+test("a real task line is unaffected by the task-like candidate test", () => {
+  const rows = JSON.parse(run(copyFixture("pass"), "tasks", ID, "--json").stdout);
+  assert.equal(rows.length, 4);
+});
