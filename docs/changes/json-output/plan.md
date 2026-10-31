@@ -13,6 +13,7 @@
 - [x] 5.1 Show --json in USAGE for validate and criteria — proof: Completion offers the flag
 - [x] 5.2 Document the three JSON shapes in README — proof: ./README.md
 - [x] 5.3 Add the changelog entry under Unreleased — proof: ./CHANGELOG.md
+- [x] 5.4 Assert --help lists --json on validate and criteria — proof: Help shows the flag
 
 ## Close-Out
 

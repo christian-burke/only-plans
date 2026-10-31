@@ -91,3 +91,9 @@ Tab completion SHALL offer `--json` on `validate` and `criteria`, and `--help` S
 - GIVEN a repo with an active change
 - WHEN `__complete validate <id> --` and `__complete criteria <id> <task> --` run
 - THEN each offers `--json`
+
+#### Scenario: Help shows the flag
+
+- GIVEN any directory
+- WHEN `onlyplans --help` runs
+- THEN the usage lines for `validate` and `criteria` include `[--json]`

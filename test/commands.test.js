@@ -517,3 +517,10 @@ test("criteria --json joins a wrapped step's continuation lines", () => {
   assert.equal(proof.then, "an error is shown");
   assert.ok(proof.block.endsWith("- THEN an error\n  is shown"));
 });
+
+test("--help lists --json on validate and criteria", () => {
+  const cwd = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "onlyplans-help-"));
+  const { stdout } = run(cwd, "--help");
+  assert.ok(stdout.includes("validate <id> [--strict] [--json]"));
+  assert.ok(stdout.includes("criteria <id> <task> [--json]"));
+});
