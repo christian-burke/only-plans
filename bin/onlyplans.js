@@ -54,9 +54,9 @@ const USAGE = `usage: onlyplans <command> [args]
   new <id>                                   create a change from the templates
   list [--json]                              active changes with task counts
   tasks <id> [--json]                        the parsed task lines of a change
-  criteria <id> <task>                       the scenario a task's proof names
+  criteria <id> <task> [--json]               the scenario a task's proof names
   done <id> <task>                           check one task's box in plan.md in place
-  validate <id> [--strict]                   check both files, print PASS or findings
+  validate <id> [--strict] [--json]          check both files, print PASS or findings
   archive <id> [--date YYYY-MM-DD] [--force] move a finished change to the archive
   setup --tabcomplete <zsh|bash|powershell>  add tab completion to your shell profile
 

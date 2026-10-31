@@ -83,6 +83,10 @@ const CANDIDATES = [
   [["tasks", "add"], [ID]],
   [["tasks", "docs/"], []],
   [["validate", ""], [ID]],
+  [
+    ["validate", ID, ""],
+    ["--strict", "--json"],
+  ],
   [["archive", ""], [ID]],
   [
     ["criteria", ID, ""],

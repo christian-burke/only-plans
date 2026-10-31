@@ -7,6 +7,11 @@
 - The `AGENTS.md` section `init` writes fills 100 columns and lives in `templates/agents.md`. Run
   `onlyplans init` again to refresh it; a section a formatter has rewrapped counts as unchanged.
 - The repo records its own changes under `docs/changes/` and pins Prettier as a dev dependency.
+- `validate --json` prints findings as `{file, line, what, fix}` objects, and `[]` when clean. The
+  exit code matches text mode.
+- `criteria --json` prints the scenario a task's proof names as one object with its `given`,
+  `when`, and `then` text, or the `path` and `raw` of a path proof.
+- `list --json` rows carry a `path` to the change folder.
 
 ## 0.2.0
 

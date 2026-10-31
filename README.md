@@ -95,13 +95,18 @@ counts as done.
   Pass `--no-agents` when something else already teaches agents the tool, such as an
   orchestrator's skill, so the section does not cost tokens on every session.
 - `onlyplans new <id>`: creates the change from the templates. Refuses a used id.
-- `onlyplans list [--json]`: active changes with task counts.
+- `onlyplans list [--json]`: active changes with task counts. JSON rows are
+  `{id, done, total, path}`.
 - `onlyplans tasks <id> [--json]`: the parsed task lines. JSON rows carry `id`, `text`, `done`,
   `fields`, and `line`.
-- `onlyplans criteria <id> <task>`: the scenario the task's proof names, verbatim.
+- `onlyplans criteria <id> <task> [--json]`: the scenario the task's proof names, verbatim.
+  `--json` prints one object. For a scenario proof it carries `kind`, `name`, `file`, `line`,
+  `given`, `when`, `then`, and `block`. For a path proof it carries `kind`, `path`, and `raw`.
 - `onlyplans done <id> <task>`: checks one task's box in `plan.md` in place. A second run is a
   no-op.
-- `onlyplans validate <id> [--strict]`: `PASS`, or one finding per line as `file:line`.
+- `onlyplans validate <id> [--strict] [--json]`: `PASS`, or one finding per line as `file:line`.
+  `--json` prints the findings as `{file, line, what, fix}` objects, or `[]` when clean. The
+  exit code is the same.
 - `onlyplans archive <id> [--date D] [--force]`: moves the change to the archive.
 - `onlyplans setup --tabcomplete <zsh|bash|powershell>`: adds tab completion to your shell.
 
