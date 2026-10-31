@@ -524,3 +524,9 @@ test("--help lists --json on validate and criteria", () => {
   assert.ok(stdout.includes("validate <id> [--strict] [--json]"));
   assert.ok(stdout.includes("criteria <id> <task> [--json]"));
 });
+
+test("### headings under Tasks leave validation and text output alone", () => {
+  const cwd = copyFixture("task-sections");
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  assert.equal(run(cwd, "tasks", ID).stdout, run(copyFixture("pass"), "tasks", ID).stdout);
+});
