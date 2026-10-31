@@ -124,7 +124,10 @@ const CANDIDATES = [
   [["init", "--no-agents", ""], []],
   [["criteria", ID, "2.1", ""], ["--json"]],
   [["archive", ID, "--date", ""], []],
-  [["archive", ID, "--date", "2026-01-01", ""], ["--force"]],
+  [
+    ["archive", ID, "--date", "2026-01-01", ""],
+    ["--force", "--dry-run"],
+  ],
   [["new", ""], []],
   [["bogus", ""], []],
   [["tasks", ID, "extra"], []],

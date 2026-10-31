@@ -280,6 +280,10 @@ function archive(ctx) {
   const change = changeFromCtx(ctx);
   const date = typeof ctx.flags.date === "string" ? ctx.flags.date : today();
   if (!DATE.test(date)) throw new CliError(`${date}: --date must be YYYY-MM-DD`, EXIT.usage);
+  const targetName = `${date}-${change.id}`;
+  const target = path.join(archiveDir(change.root), targetName);
+  const dryRun = ctx.flags["dry-run"];
+  if (dryRun) print(`would move ${relChange(change.id)}/ to ${relArchived(targetName)}/`);
   const unchecked = readPlan(change).tasks.filter((t) => !t.done);
   if (unchecked.length && !ctx.flags.force) {
     const ids = unchecked.map((t) => t.id).join(", ");
@@ -288,11 +292,10 @@ function archive(ctx) {
         " — check them or pass --force",
     );
   }
-  const targetName = `${date}-${change.id}`;
-  const target = path.join(archiveDir(change.root), targetName);
   if (fs.existsSync(target)) {
     throw new CliError(`${relArchived(targetName)}: already exists — pass a different --date`);
   }
+  if (dryRun) return;
   fs.mkdirSync(archiveDir(change.root), { recursive: true });
   fs.renameSync(change.dir, target);
   print(`${relArchived(targetName)}/`);
@@ -409,7 +412,12 @@ const COMMANDS = {
   },
   done: { arity: 2, flags: [], run: done, positional: [idCompletion, taskIdCompletion] },
   validate: { arity: 1, flags: ["strict", "json"], run: validate, positional: [idCompletion] },
-  archive: { arity: 1, flags: ["date", "force"], run: archive, positional: [idCompletion] },
+  archive: {
+    arity: 1,
+    flags: ["date", "force", "dry-run"],
+    run: archive,
+    positional: [idCompletion],
+  },
   setup: { arity: 0, flags: ["tabcomplete"], run: setup },
 };
 

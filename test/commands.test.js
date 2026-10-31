@@ -582,3 +582,42 @@ test("tasks --next reports when every task is checked", () => {
   assert.equal(json.status, 0);
   assert.equal(json.stdout, "null\n");
 });
+
+test("archive --dry-run prints the destination and changes nothing when it would succeed", () => {
+  const cwd = copyFixture("unchecked-none");
+  fs.rmSync(path.join(cwd, "docs", "changes", "archive"), { recursive: true, force: true });
+  const result = run(cwd, "archive", ID, "--dry-run", "--date", "2026-01-01");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    result.stdout,
+    "would move docs/changes/add-login/ to docs/changes/archive/2026-01-01-add-login/\n",
+  );
+  assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", ID, "plan.md")));
+  assert.equal(fs.existsSync(path.join(cwd, "docs", "changes", "archive")), false);
+});
+
+test("archive --dry-run prints the destination, then refuses on unchecked tasks", () => {
+  const cwd = copyFixture("pass");
+  const result = run(cwd, "archive", ID, "--dry-run", "--date", "2026-01-01");
+  assert.equal(result.status, 1);
+  assert.equal(
+    result.stdout,
+    "would move docs/changes/add-login/ to docs/changes/archive/2026-01-01-add-login/\n",
+  );
+  assert.match(
+    result.stderr,
+    /^docs\/changes\/add-login\/plan\.md:6: unchecked tasks 1\.2, 2\.1, 2\.2 — /,
+  );
+  assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", ID, "plan.md")));
+});
+
+test("archive --dry-run refuses when the target already exists", () => {
+  const cwd = copyFixture("unchecked-none");
+  fs.mkdirSync(path.join(cwd, "docs", "changes", "archive", "2026-01-02-add-login"), {
+    recursive: true,
+  });
+  const result = run(cwd, "archive", ID, "--dry-run", "--date", "2026-01-02");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /2026-01-02-add-login: already exists/);
+  assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", ID, "plan.md")));
+});
