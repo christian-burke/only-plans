@@ -17,6 +17,8 @@
 - `tasks --next` prints the first unchecked task, or `all tasks checked`. With `--json` it prints
   that task's row, or `null`.
 - `archive --dry-run` prints `would move <from> to <to>`, runs every check, and moves nothing.
+- The `--help` columns were re-aligned and the archive synopsis now reads `[--date D]`; the date
+  format is unchanged.
 
 ## 0.2.0
 

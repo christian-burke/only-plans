@@ -102,7 +102,8 @@ meaning to their text.
 - `onlyplans tasks <id> [--json] [--next]`: the parsed task lines. JSON rows carry `id`, `text`,
   `done`, `fields`, `line`, `section`, and `section_line`; `section` is the nearest `###` heading
   under `## Tasks`, or `null` without one. `--next` prints only the first unchecked task, or
-  `all tasks checked`; with `--json` it prints that task's row, or `null`.
+  `all tasks checked`; with `--json` it prints that task's row, or `null`. `--next` reports
+  parsed tasks only, so run `validate` to catch a malformed line it would skip.
 - `onlyplans criteria <id> <task> [--json]`: the scenario the task's proof names, verbatim.
   `--json` prints one object. For a scenario proof it carries `kind`, `name`, `file`, `line`,
   `given`, `when`, `then`, and `block`. For a path proof it carries `kind`, `path`, and `raw`.
@@ -112,7 +113,8 @@ meaning to their text.
   `--json` prints the findings as `{file, line, what, fix}` objects, or `[]` when clean. The
   exit code is the same.
 - `onlyplans archive <id> [--date D] [--force] [--dry-run]`: moves the change to the archive.
-  `--dry-run` prints `would move <from> to <to>`, runs every check, and moves nothing.
+  `--dry-run` prints `would move <from> to <to>`, runs every check, and moves nothing. The line
+  prints even when a check then refuses, and the exit code is the real run's.
 - `onlyplans setup --tabcomplete <zsh|bash|powershell>`: adds tab completion to your shell.
 
 `<id>` may also be given as a path, such as `docs/changes/add-login/`.
