@@ -443,6 +443,15 @@ function usageError(message) {
   return EXIT.usage;
 }
 
+/**
+ * One line for a Node fs error: its message repeats the code, the syscall, and the path.
+ * @param {NodeJS.ErrnoException} error
+ */
+function fsError(error) {
+  const reason = error.message.replace(`${error.code}: `, "").split(",")[0];
+  return `${error.code}: ${error.path ?? ""} — ${reason}`;
+}
+
 /** @param {string[]} argv */
 function main(argv) {
   if (argv[0] === COMPLETE) {
@@ -473,9 +482,13 @@ function main(argv) {
   try {
     return command.run({ cwd: process.cwd(), positional, flags }) ?? EXIT.ok;
   } catch (error) {
-    if (!(error instanceof CliError)) throw error;
-    process.stderr.write(`${error.message}\n`);
-    return error.exitCode;
+    if (error instanceof CliError) {
+      process.stderr.write(`${error.message}\n`);
+      return error.exitCode;
+    }
+    if (typeof error?.code !== "string") throw error;
+    process.stderr.write(`${fsError(error)}\n`);
+    return EXIT.fail;
   }
 }
 

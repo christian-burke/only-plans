@@ -719,3 +719,21 @@ test("unindented prose directly under a task continues it, as Markdown reads it"
   assert.equal(rows[1].text, "Reject bad passwords");
   assert.deepEqual(rows[1].fields, { proof: "Bad password" });
 });
+
+test("a filesystem error prints one line without a stack trace", (t) => {
+  if (process.platform === "win32" || process.getuid?.() === 0) {
+    t.skip("read-only mode is not honoured here");
+    return;
+  }
+  const cwd = copyFixture("pass");
+  const plan = planPath(cwd);
+  fs.chmodSync(plan, 0o444);
+  t.after(() => fs.chmodSync(plan, 0o644));
+  const result = run(cwd, "done", ID, "1.2");
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.doesNotMatch(result.stderr.replace(/\n$/, ""), /\n/);
+  assert.match(result.stderr, /EACCES/);
+  assert.match(result.stderr, /plan\.md/);
+  assert.doesNotMatch(result.stderr, / {4}at /);
+});

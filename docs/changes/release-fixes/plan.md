@@ -4,7 +4,7 @@
 
 - [x] 1.1 Report indented task lines as malformed — proof: Indented task line is a finding
 - [x] 1.2 Report star and plus bullets as malformed — proof: Star bullet is a finding
-- [ ] 2.1 Print one line for non-CliError failures in main — proof: Read-only plan on done
+- [x] 2.1 Print one line for non-CliError failures in main — proof: Read-only plan on done
 - [ ] 3.1 Strip a leading BOM in readLines — proof: BOM file validates
 - [ ] 4.1 Refuse an impossible --date — proof: Impossible date refused
 - [ ] 5.1 Fix README and the AGENTS template — proof: Template says what the tool does
