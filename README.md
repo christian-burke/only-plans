@@ -85,6 +85,8 @@ scenario in `spec.md`, or a path from the repo root. A proof with `/` or `::` is
 Other fields are kept and ignored. Ids ascend by their numeric parts and may leave gaps, so a
 task inserted as `1.2.1` sits between `1.2` and `1.3` and nothing is renumbered. Only `[x]`
 counts as done.
+`###` headings under `## Tasks` are allowed and reported as `section`; the tool attaches no
+meaning to their text.
 
 ## OnlyPlans Commands
 
@@ -97,8 +99,10 @@ counts as done.
 - `onlyplans new <id>`: creates the change from the templates. Refuses a used id.
 - `onlyplans list [--json]`: active changes with task counts. JSON rows are
   `{id, total, done, path}`, in that order.
-- `onlyplans tasks <id> [--json]`: the parsed task lines. JSON rows carry `id`, `text`, `done`,
-  `fields`, and `line`.
+- `onlyplans tasks <id> [--json] [--next]`: the parsed task lines. JSON rows carry `id`, `text`,
+  `done`, `fields`, `line`, `section`, and `section_line`; `section` is the nearest `###` heading
+  under `## Tasks`, or `null` without one. `--next` prints only the first unchecked task, or
+  `all tasks checked`; with `--json` it prints that task's row, or `null`.
 - `onlyplans criteria <id> <task> [--json]`: the scenario the task's proof names, verbatim.
   `--json` prints one object. For a scenario proof it carries `kind`, `name`, `file`, `line`,
   `given`, `when`, `then`, and `block`. For a path proof it carries `kind`, `path`, and `raw`.
@@ -107,7 +111,8 @@ counts as done.
 - `onlyplans validate <id> [--strict] [--json]`: `PASS`, or one finding per line as `file:line`.
   `--json` prints the findings as `{file, line, what, fix}` objects, or `[]` when clean. The
   exit code is the same.
-- `onlyplans archive <id> [--date D] [--force]`: moves the change to the archive.
+- `onlyplans archive <id> [--date D] [--force] [--dry-run]`: moves the change to the archive.
+  `--dry-run` prints `would move <from> to <to>`, runs every check, and moves nothing.
 - `onlyplans setup --tabcomplete <zsh|bash|powershell>`: adds tab completion to your shell.
 
 `<id>` may also be given as a path, such as `docs/changes/add-login/`.

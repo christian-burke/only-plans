@@ -50,15 +50,15 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const USAGE = `usage: onlyplans <command> [args]
 
-  init [--no-agents]                         create docs/changes/ and add an AGENTS.md section
-  new <id>                                   create a change from the templates
-  list [--json]                              active changes with task counts
-  tasks <id> [--json] [--next]               the parsed task lines of a change
-  criteria <id> <task> [--json]              the scenario a task's proof names
-  done <id> <task>                           check one task's box in plan.md in place
-  validate <id> [--strict] [--json]          check both files, print PASS or findings
-  archive <id> [--date YYYY-MM-DD] [--force] move a finished change to the archive
-  setup --tabcomplete <zsh|bash|powershell>  add tab completion to your shell profile
+  init [--no-agents]                             create docs/changes/ and add an AGENTS.md section
+  new <id>                                       create a change from the templates
+  list [--json]                                  active changes with task counts
+  tasks <id> [--json] [--next]                   the parsed task lines of a change
+  criteria <id> <task> [--json]                  the scenario a task's proof names
+  done <id> <task>                               check one task's box in plan.md in place
+  validate <id> [--strict] [--json]              check both files, print PASS or findings
+  archive <id> [--date D] [--force] [--dry-run]  move a finished change to the archive
+  setup --tabcomplete <zsh|bash|powershell>      add tab completion to your shell profile
 
 <id> may also be given as a path, such as docs/changes/<id>/.
 --help prints this. --version prints the version.`;

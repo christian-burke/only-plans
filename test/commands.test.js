@@ -621,3 +621,17 @@ test("archive --dry-run refuses when the target already exists", () => {
   assert.match(result.stderr, /2026-01-02-add-login: already exists/);
   assert.ok(fs.existsSync(path.join(cwd, "docs", "changes", ID, "plan.md")));
 });
+
+test("--help lists --next on tasks and --dry-run on archive", () => {
+  const out = run(copyFixture("pass"), "--help").stdout;
+  assert.match(out, /^  tasks <id> \[--json\] \[--next\] +the parsed task lines/m);
+  assert.match(out, /^  archive <id> \[--date D\] \[--force\] \[--dry-run\] +move a finished/m);
+});
+
+test("the changelog's first entry is the package version", () => {
+  const root = path.join(__dirname, "..");
+  const { version } = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
+  const first = changelog.match(/^## (.+)$/m);
+  assert.equal(first && first[1], version);
+});
