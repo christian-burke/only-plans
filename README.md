@@ -96,7 +96,7 @@ counts as done.
   orchestrator's skill, so the section does not cost tokens on every session.
 - `onlyplans new <id>`: creates the change from the templates. Refuses a used id.
 - `onlyplans list [--json]`: active changes with task counts. JSON rows are
-  `{id, done, total, path}`.
+  `{id, total, done, path}`, in that order.
 - `onlyplans tasks <id> [--json]`: the parsed task lines. JSON rows carry `id`, `text`, `done`,
   `fields`, and `line`.
 - `onlyplans criteria <id> <task> [--json]`: the scenario the task's proof names, verbatim.

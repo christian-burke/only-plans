@@ -163,9 +163,9 @@ function taskCounts(root, id) {
   const tasks = fs.existsSync(file) ? parsePlan(readLines(file)).tasks : [];
   return {
     id,
-    path: relChange(id),
     total: tasks.length,
     done: tasks.filter((t) => t.done).length,
+    path: relChange(id),
   };
 }
 

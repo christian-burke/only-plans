@@ -161,9 +161,9 @@ test("new refuses an id that is not kebab-case", () => {
 test("list reports task counts as text and JSON", () => {
   const cwd = copyFixture("pass");
   assert.equal(run(cwd, "list").stdout, `${ID} 1/4\n`);
-  assert.deepEqual(JSON.parse(run(cwd, "list", "--json").stdout), [
-    { id: ID, total: 4, done: 1, path: `docs/changes/${ID}` },
-  ]);
+  const rows = JSON.parse(run(cwd, "list", "--json").stdout);
+  assert.deepEqual(rows, [{ id: ID, total: 4, done: 1, path: `docs/changes/${ID}` }]);
+  assert.deepEqual(Object.keys(rows[0]), ["id", "total", "done", "path"]);
 });
 
 test("tasks --json preserves unknown fields", () => {
