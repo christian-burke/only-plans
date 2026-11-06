@@ -37,7 +37,12 @@ const {
   findingRow,
   renderFinding,
 } = require("../lib/repo");
-const { validateChange, missingScenarioFinding, emptyPathFinding } = require("../lib/validate");
+const {
+  validateChange,
+  missingScenarioFinding,
+  emptyPathFinding,
+  unclosedFenceFinding,
+} = require("../lib/validate");
 const {
   COMPLETE,
   completion,
@@ -206,11 +211,23 @@ function taskRow({ id, text, done, fields, line, section }) {
   };
 }
 
+/**
+ * An unclosed fence hides every task after it, so a command that decides from the task list
+ * refuses instead of acting on a partial one.
+ * @param {Change} change @param {import("../lib/parse").Plan} plan
+ */
+function requireClosedFences(change, plan) {
+  if (plan.unclosedFence) {
+    throw new CliError(renderFinding(change, unclosedFenceFinding(PLAN, plan.unclosedFence)));
+  }
+}
+
 /** @param {Ctx} ctx */
 function tasks(ctx) {
   const change = changeFromCtx(ctx);
   const plan = readPlan(change);
   if (ctx.flags.next) {
+    requireClosedFences(change, plan);
     const next = plan.tasks.find((t) => !t.done) ?? null;
     if (ctx.flags.json) printJson(next && taskRow(next));
     else print(next ? next.raw : "all tasks checked");
@@ -221,14 +238,17 @@ function tasks(ctx) {
   }
 }
 
+/** @param {Change} change @param {string} taskId */
+function noTaskError(change, taskId) {
+  return new CliError(
+    `${relFile(change, PLAN)}: no task ${taskId} — run onlyplans tasks ${change.id}`,
+  );
+}
+
 /** @param {Change} change @param {string} taskId @returns {Task} */
 function requireTask(change, taskId) {
   const task = readPlan(change).tasks.find((t) => t.id === taskId);
-  if (!task) {
-    throw new CliError(
-      `${relFile(change, PLAN)}: no task ${taskId} — run onlyplans tasks ${change.id}`,
-    );
-  }
+  if (!task) throw noTaskError(change, taskId);
   return task;
 }
 
@@ -329,9 +349,11 @@ function done(ctx) {
   const fd = acquireLock(lock, `${relFile(change, PLAN)}.lock`);
   try {
     const current = parsePlan(readLines(file)).tasks.find((t) => t.id === taskId);
-    if (!current || current.done) return print(`${taskId} already checked`);
+    if (!current) throw noTaskError(change, taskId);
+    if (current.done) return print(`${taskId} already checked`);
     // latin1 maps every byte to one code unit and back, so nothing outside the one line changes.
     fs.writeFileSync(tmp, checkLine(fs.readFileSync(file, "latin1"), current.line), "latin1");
+    fs.chmodSync(tmp, fs.statSync(file).mode);
     renameOver(tmp, file);
     print(`checked ${taskId} at ${relFile(change, PLAN)}:${current.line}`);
   } finally {
@@ -360,8 +382,10 @@ function archive(ctx) {
   const targetName = `${date}-${change.id}`;
   const target = path.join(archiveDir(change.root), targetName);
   const dryRun = ctx.flags["dry-run"];
+  const plan = readPlan(change);
+  requireClosedFences(change, plan);
   if (dryRun) print(`would move ${relChange(change.id)}/ to ${relArchived(targetName)}/`);
-  const unchecked = readPlan(change).tasks.filter((t) => !t.done);
+  const unchecked = plan.tasks.filter((t) => !t.done);
   if (unchecked.length && !ctx.flags.force) {
     const ids = unchecked.map((t) => t.id).join(", ");
     throw new CliError(

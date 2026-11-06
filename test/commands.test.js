@@ -813,6 +813,27 @@ test("a fenced task-shaped line is not a task and does not glue onto the task ab
   assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
 });
 
+test("an unclosed fence blocks archive and tasks --next and changes nothing", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "plan.md", (lines) => {
+    lines.splice(5, 0, "```");
+    return lines;
+  });
+  const planFile = path.join(cwd, "docs", "changes", ID, "plan.md");
+  const before = fs.readFileSync(planFile, "utf8");
+  const refusals = [
+    run(cwd, "archive", ID, "--dry-run", "--date", "2026-01-01"),
+    run(cwd, "tasks", ID, "--next"),
+  ];
+  for (const result of refusals) {
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /^docs\/changes\/add-login\/plan\.md:6: code fence is not closed/);
+  }
+  assert.equal(fs.readFileSync(planFile, "utf8"), before);
+  assert.ok(!fs.existsSync(path.join(cwd, "docs", "changes", "archive", "2026-01-01-add-login")));
+});
+
 test("a fenced block in a scenario stays in the block and does not end the scenario", () => {
   const cwd = copyFixture("pass");
   editChangeFile(cwd, "spec.md", (lines) => {
