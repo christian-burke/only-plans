@@ -4,10 +4,10 @@
 
 - [x] 1.1 Lock plan.md; write via a renamed temp file — proof: Parallel done runs keep every check
 - [x] 1.2 Fail in one line when the lock is held — proof: Held lock is reported
-- [ ] 2.1 Skip fenced lines in parsePlan; fence ends a task — proof: Fenced task line is not a task
-- [ ] 2.2 Skip fenced headings in parseSpec — proof: Fenced heading does not start a section
-- [ ] 2.3 Keep fences in the block; fence ends a step — proof: Fenced comment stays in the scenario
-- [ ] 2.4 Report a fence left open at end of file — proof: Unclosed fence is a finding
+- [x] 2.1 Skip fenced lines in parsePlan; fence ends a task — proof: Fenced task line is not a task
+- [x] 2.2 Skip fenced headings in parseSpec — proof: Fenced heading does not start a section
+- [x] 2.3 Keep fences in the block; fence ends a step — proof: Fenced comment stays in the scenario
+- [x] 2.4 Report a fence left open at end of file — proof: Unclosed fence is a finding
 - [ ] 3.1 Resolve a proof as a scenario first in parseProof — proof: Slash in a scenario name
 - [ ] 3.2 Report a proof with an empty path — proof: Empty path proof is a finding
 - [ ] 3.3 Report an empty step under --strict — proof: Empty step is a strict finding

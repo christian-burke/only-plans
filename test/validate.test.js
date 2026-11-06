@@ -185,3 +185,32 @@ test("a leading byte order mark does not hide the title", () => {
   assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
   assert.match(run(cwd, "criteria", ID, "1.1").stdout, /^#### Scenario:/);
 });
+
+function editChangeFile(cwd, file, edit) {
+  const target = path.join(cwd, CHANGE, file);
+  const lines = fs.readFileSync(target, "utf8").split("\n");
+  fs.writeFileSync(target, edit(lines).join("\n"));
+}
+
+test("a fenced heading in the spec is not a section", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "spec.md", (lines) => {
+    lines.splice(4, 1, "```", "## Requirements", "```");
+    return lines;
+  });
+  assert.equal(run(cwd, "validate", ID).stdout, "PASS\n");
+});
+
+test("an unclosed fence is reported at its opener", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "plan.md", (lines) => {
+    lines.splice(5, 0, "```");
+    return lines;
+  });
+  const result = run(cwd, "validate", ID);
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stdout,
+    /^docs\/changes\/add-login\/plan\.md:6: code fence is not closed — add a closing ``` line/,
+  );
+});

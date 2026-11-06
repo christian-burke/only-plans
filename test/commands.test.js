@@ -792,3 +792,34 @@ test("done fails in one line when another run holds the lock", () => {
   assert.equal(result.stderr.trim().split("\n").length, 1);
   assert.deepEqual(fs.readFileSync(path.join(dir, "plan.md")), before);
 });
+
+/** Rewrites a fixture file of the copied change through `edit(lines)`. */
+function editChangeFile(cwd, file, edit) {
+  const target = path.join(cwd, "docs", "changes", ID, file);
+  const lines = fs.readFileSync(target, "utf8").split("\n");
+  fs.writeFileSync(target, edit(lines).join("\n"));
+}
+
+test("a fenced task-shaped line is not a task and does not glue onto the task above", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "plan.md", (lines) => {
+    lines.splice(5, 0, "  ```", "  - [ ] 9.9 Example — proof: X", "  ```");
+    return lines;
+  });
+  const rows = JSON.parse(run(cwd, "tasks", ID, "--json").stdout);
+  assert.equal(rows.length, 4);
+  assert.equal(rows[0].text, "Build the form");
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+});
+
+test("a fenced block in a scenario stays in the block and does not end the scenario", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "spec.md", (lines) => {
+    lines.splice(23, 0, "", "```sh", "# comment", "echo ok", "```");
+    return lines;
+  });
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  const row = JSON.parse(run(cwd, "criteria", ID, "1.2", "--json").stdout);
+  assert.equal(row.then, "an error is shown");
+  assert.ok(row.block.includes("# comment"));
+});
