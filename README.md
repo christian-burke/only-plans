@@ -81,14 +81,20 @@ one or more `#### Scenario:` blocks with GIVEN, WHEN, and THEN lines, in that or
 
 A checkbox, an id, the task text, then `key: value` fields, each introduced by `—`. A `—`
 that is not followed by `key:` is part of the task text. `proof` is required and names a
-scenario in `spec.md`, or a path from the repo root. A proof with `/` or `::` is a path; the
-path need not exist yet, since the task often creates it. Other fields are kept and ignored. Ids
-ascend by their numeric parts and may leave gaps, so a task inserted as `1.2.1` sits between
-`1.2` and `1.3` and nothing is renumbered. Only `[x]` counts as done.
+scenario in `spec.md`, or a path from the repo root. A proof that equals a scenario name is that
+scenario; otherwise a proof with `/` or `::` is a path, and the path need not exist yet, since the
+task often creates it. Other fields are kept and ignored. Ids ascend by their numeric parts and
+may leave gaps, so a task inserted as `1.2.1` sits between `1.2` and `1.3` and nothing is
+renumbered. `[x]` or `[X]` counts as done.
 A task may wrap. The non-blank lines directly below it that do not start a list item or a
 heading belong to it, indented or not, the way Markdown reads them. The tool joins them with
 single spaces before it reads the fields, so a proof on a wrapped line counts, and the task's
 `line` is its first line.
+Fenced code blocks, opened by three or more backticks or tildes after at most three spaces of
+indent, are opaque to the parser: nothing inside one counts as a task, a heading, or a scenario
+step. A fence must be closed, by a line of the same character, at least as many of them, with
+nothing but whitespace after, and one ends a wrapped task. A backtick fence whose info string
+contains a backtick is not a fence.
 `###` headings under `## Tasks` are allowed and reported as `section`; the tool attaches no
 meaning to their text.
 
@@ -112,7 +118,7 @@ meaning to their text.
   `--json` prints one object. For a scenario proof it carries `kind`, `name`, `file`, `line`,
   `given`, `when`, `then`, and `block`. For a path proof it carries `kind`, `path`, and `raw`.
 - `onlyplans done <id> <task>`: checks one task's box in `plan.md` in place. A second run is a
-  no-op.
+  no-op. It holds `plan.md.lock` while writing and fails in one line if another run holds it.
 - `onlyplans validate <id> [--strict] [--json]`: `PASS`, or one finding per line as `file:line`.
   `--json` prints the findings as `{file, line, what, fix}` objects, or `[]` when clean. The
   exit code is the same.
@@ -124,9 +130,12 @@ meaning to their text.
 `<id>` may also be given as a path, such as `docs/changes/add-login/`.
 
 `--strict` also requires that every scenario is the proof of some task, that no line is longer
-than 100 characters, and that no `<replace me>` from the templates is left in either file.
+than 100 characters, that no `<replace me>` from the templates is left in either file, and that
+no GIVEN, WHEN, or THEN is empty.
 
 Exit 0 on success, 1 on a finding or refusal, 2 on bad usage. The tool never touches git.
+The tool looks for a `.git` entry only to stop the root search, and never reads it. A change id
+must match its folder name exactly, so a symlinked change folder is not accepted as an id.
 Outside `docs/changes/` it writes only the `AGENTS.md` section from `init` and the profile
 block from `setup`.
 

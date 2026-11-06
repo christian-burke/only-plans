@@ -6,7 +6,15 @@ const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { SPEC, PLAN, readLines, parsePlan, parseProof, scenariosOf } = require("../lib/parse");
+const {
+  SPEC,
+  PLAN,
+  readLines,
+  parsePlan,
+  parseProof,
+  scenariosOf,
+  scenarioNames,
+} = require("../lib/parse");
 const {
   CHANGES_DIR,
   ARCHIVE_DIR,
@@ -17,6 +25,7 @@ const {
   relArchived,
   relFile,
   locateRoot,
+  hasGit,
   requireRoot,
   changesDir,
   archiveDir,
@@ -28,7 +37,12 @@ const {
   findingRow,
   renderFinding,
 } = require("../lib/repo");
-const { validateChange, missingScenarioFinding } = require("../lib/validate");
+const {
+  validateChange,
+  missingScenarioFinding,
+  emptyPathFinding,
+  unclosedFenceFinding,
+} = require("../lib/validate");
 const {
   COMPLETE,
   completion,
@@ -110,10 +124,17 @@ function today() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** The `DATE` shape alone accepts 2026-99-99; round-tripping through a Date rejects it. */
+function isCalendarDate(/** @type {string} */ date) {
+  const [y, m, d] = date.split("-").map(Number);
+  const utc = new Date(Date.UTC(y, m - 1, d));
+  return utc.getUTCFullYear() === y && utc.getUTCMonth() === m - 1 && utc.getUTCDate() === d;
+}
+
 /** @param {Ctx} ctx */
 function init(ctx) {
   const own = locateRoot(ctx.cwd) === ctx.cwd;
-  const above = own ? null : locateRoot(path.dirname(ctx.cwd));
+  const above = own || hasGit(ctx.cwd) ? null : locateRoot(path.dirname(ctx.cwd));
   if (above) {
     throw new CliError(
       `${changesDir(above)}: a root already exists above ${ctx.cwd}` +
@@ -190,11 +211,23 @@ function taskRow({ id, text, done, fields, line, section }) {
   };
 }
 
+/**
+ * An unclosed fence hides every task after it, so a command that decides from the task list
+ * refuses instead of acting on a partial one.
+ * @param {Change} change @param {import("../lib/parse").Plan} plan
+ */
+function requireClosedFences(change, plan) {
+  if (plan.unclosedFence) {
+    throw new CliError(renderFinding(change, unclosedFenceFinding(PLAN, plan.unclosedFence)));
+  }
+}
+
 /** @param {Ctx} ctx */
 function tasks(ctx) {
   const change = changeFromCtx(ctx);
   const plan = readPlan(change);
   if (ctx.flags.next) {
+    requireClosedFences(change, plan);
     const next = plan.tasks.find((t) => !t.done) ?? null;
     if (ctx.flags.json) printJson(next && taskRow(next));
     else print(next ? next.raw : "all tasks checked");
@@ -205,14 +238,17 @@ function tasks(ctx) {
   }
 }
 
+/** @param {Change} change @param {string} taskId */
+function noTaskError(change, taskId) {
+  return new CliError(
+    `${relFile(change, PLAN)}: no task ${taskId} — run onlyplans tasks ${change.id}`,
+  );
+}
+
 /** @param {Change} change @param {string} taskId @returns {Task} */
 function requireTask(change, taskId) {
   const task = readPlan(change).tasks.find((t) => t.id === taskId);
-  if (!task) {
-    throw new CliError(
-      `${relFile(change, PLAN)}: no task ${taskId} — run onlyplans tasks ${change.id}`,
-    );
-  }
+  if (!task) throw noTaskError(change, taskId);
   return task;
 }
 
@@ -227,12 +263,15 @@ function criteria(ctx) {
         ' — append " — proof: <Scenario name>"',
     );
   }
-  const proof = parseProof(task.fields.proof);
+  const spec = readSpec(change);
+  const proof = parseProof(task.fields.proof, scenarioNames(spec));
   if (proof.kind === "path") {
+    if (proof.target === "")
+      throw new CliError(renderFinding(change, emptyPathFinding(task, proof)));
     if (!ctx.flags.json) return print(proof.raw);
     return printJson({ kind: "path", path: proof.target, raw: proof.raw });
   }
-  const scenario = scenariosOf(readSpec(change)).find((s) => s.name === proof.target);
+  const scenario = scenariosOf(spec).find((s) => s.name === proof.target);
   if (!scenario) throw new CliError(renderFinding(change, missingScenarioFinding(task, proof)));
   const block = scenario.block.join("\n");
   if (!ctx.flags.json) return print(block);
@@ -253,6 +292,49 @@ function checkLine(text, lineNumber) {
   return lines.join("\n");
 }
 
+const LOCK_WAIT_MS = 2000;
+const RETRY_MS = 20;
+const RENAME_RETRIES = 5;
+
+/** @param {number} ms */
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * Takes the exclusive-create lock file, waiting briefly for another run to release it.
+ * @param {string} lock @param {string} shown the lock's name as printed in the error
+ */
+function acquireLock(lock, shown) {
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  for (;;) {
+    try {
+      return fs.openSync(lock, "wx");
+    } catch (error) {
+      if (/** @type {NodeJS.ErrnoException} */ (error).code !== "EEXIST") throw error;
+      if (Date.now() >= deadline) {
+        throw new CliError(
+          `${shown}: another done holds the lock — delete it if no other done is running`,
+        );
+      }
+      sleep(RETRY_MS);
+    }
+  }
+}
+
+/** Windows refuses a rename while a scanner or reader briefly holds the target. */
+function renameOver(/** @type {string} */ from, /** @type {string} */ to) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return fs.renameSync(from, to);
+    } catch (error) {
+      const code = /** @type {NodeJS.ErrnoException} */ (error).code;
+      if ((code !== "EPERM" && code !== "EBUSY") || attempt >= RENAME_RETRIES) throw error;
+      sleep(RETRY_MS);
+    }
+  }
+}
+
 /** @param {Ctx} ctx */
 function done(ctx) {
   const taskId = ctx.positional[1];
@@ -260,9 +342,25 @@ function done(ctx) {
   const task = requireTask(change, taskId);
   if (task.done) return print(`${taskId} already checked`);
   const file = path.join(change.dir, PLAN);
-  // latin1 maps every byte to one code unit and back, so nothing outside the one line changes.
-  fs.writeFileSync(file, checkLine(fs.readFileSync(file, "latin1"), task.line), "latin1");
-  print(`checked ${taskId} at ${relFile(change, PLAN)}:${task.line}`);
+  // A rename would replace a read-only plan, so refuse it up front as the in-place write did.
+  fs.accessSync(file, fs.constants.W_OK);
+  const lock = `${file}.lock`;
+  const tmp = path.join(change.dir, `${PLAN}.${process.pid}.tmp`);
+  const fd = acquireLock(lock, `${relFile(change, PLAN)}.lock`);
+  try {
+    const current = parsePlan(readLines(file)).tasks.find((t) => t.id === taskId);
+    if (!current) throw noTaskError(change, taskId);
+    if (current.done) return print(`${taskId} already checked`);
+    // latin1 maps every byte to one code unit and back, so nothing outside the one line changes.
+    fs.writeFileSync(tmp, checkLine(fs.readFileSync(file, "latin1"), current.line), "latin1");
+    fs.chmodSync(tmp, fs.statSync(file).mode);
+    renameOver(tmp, file);
+    print(`checked ${taskId} at ${relFile(change, PLAN)}:${current.line}`);
+  } finally {
+    fs.closeSync(fd);
+    fs.rmSync(lock, { force: true });
+    fs.rmSync(tmp, { force: true });
+  }
 }
 
 /** @param {Ctx} ctx */
@@ -279,12 +377,15 @@ function validate(ctx) {
 function archive(ctx) {
   const change = changeFromCtx(ctx);
   const date = typeof ctx.flags.date === "string" ? ctx.flags.date : today();
-  if (!DATE.test(date)) throw new CliError(`${date}: --date must be YYYY-MM-DD`, EXIT.usage);
+  if (!DATE.test(date) || !isCalendarDate(date))
+    throw new CliError(`${date}: --date must be YYYY-MM-DD`, EXIT.usage);
   const targetName = `${date}-${change.id}`;
   const target = path.join(archiveDir(change.root), targetName);
   const dryRun = ctx.flags["dry-run"];
+  const plan = readPlan(change);
+  requireClosedFences(change, plan);
   if (dryRun) print(`would move ${relChange(change.id)}/ to ${relArchived(targetName)}/`);
-  const unchecked = readPlan(change).tasks.filter((t) => !t.done);
+  const unchecked = plan.tasks.filter((t) => !t.done);
   if (unchecked.length && !ctx.flags.force) {
     const ids = unchecked.map((t) => t.id).join(", ");
     throw new CliError(
@@ -443,6 +544,15 @@ function usageError(message) {
   return EXIT.usage;
 }
 
+/**
+ * One line for a Node fs error: its message repeats the code, the syscall, and the path.
+ * @param {NodeJS.ErrnoException} error
+ */
+function fsError(error) {
+  const reason = error.message.replace(`${error.code}: `, "").split(",")[0];
+  return `${error.code}: ${error.path ?? ""} — ${reason}`;
+}
+
 /** @param {string[]} argv */
 function main(argv) {
   if (argv[0] === COMPLETE) {
@@ -473,9 +583,13 @@ function main(argv) {
   try {
     return command.run({ cwd: process.cwd(), positional, flags }) ?? EXIT.ok;
   } catch (error) {
-    if (!(error instanceof CliError)) throw error;
-    process.stderr.write(`${error.message}\n`);
-    return error.exitCode;
+    if (error instanceof CliError) {
+      process.stderr.write(`${error.message}\n`);
+      return error.exitCode;
+    }
+    if (typeof error?.code !== "string") throw error;
+    process.stderr.write(`${fsError(error)}\n`);
+    return EXIT.fail;
   }
 }
 

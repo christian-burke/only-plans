@@ -719,3 +719,162 @@ test("unindented prose directly under a task continues it, as Markdown reads it"
   assert.equal(rows[1].text, "Reject bad passwords");
   assert.deepEqual(rows[1].fields, { proof: "Bad password" });
 });
+
+test("a filesystem error prints one line without a stack trace", (t) => {
+  if (process.platform === "win32" || process.getuid?.() === 0) {
+    t.skip("read-only mode is not honoured here");
+    return;
+  }
+  const cwd = copyFixture("pass");
+  const plan = planPath(cwd);
+  fs.chmodSync(plan, 0o444);
+  t.after(() => fs.chmodSync(plan, 0o644));
+  const result = run(cwd, "done", ID, "1.2");
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.doesNotMatch(result.stderr.replace(/\n$/, ""), /\n/);
+  assert.match(result.stderr, /EACCES/);
+  assert.match(result.stderr, /plan\.md/);
+  assert.doesNotMatch(result.stderr, / {4}at /);
+});
+
+test("archive refuses a date that is not on the calendar", () => {
+  const cwd = copyFixture("unchecked-none");
+  for (const date of ["2026-99-99", "2026-02-30"]) {
+    const result = run(cwd, "archive", ID, "--dry-run", "--date", date);
+    assert.equal(result.status, 2, date);
+    assert.match(result.stderr, /--date must be YYYY-MM-DD/);
+    assert.equal(result.stdout, "");
+  }
+  assert.equal(run(cwd, "archive", ID, "--dry-run", "--date", "2024-02-29").status, 0);
+});
+
+test("the AGENTS.md section describes --next, [X], and what archive checks", () => {
+  const cwd = freshDir();
+  run(cwd, "init");
+  const text = agentsText(cwd);
+  assert.match(text, /tasks <id> --next/);
+  assert.match(text, /\[X\]/);
+  assert.match(text, /ignores the Close-Out box/);
+  assert.match(text, /equals a scenario name is that scenario/);
+});
+
+test("parallel done runs keep every check and leave no lock", async () => {
+  const { spawn } = require("node:child_process");
+  const cwd = copyFixture("pass");
+  const runs = ["1.2", "2.1", "2.2"].map(
+    (id) =>
+      new Promise((resolve) => {
+        const child = spawn(process.execPath, [BIN, "done", ID, id], { cwd });
+        let out = "";
+        child.stdout.on("data", (d) => (out += d));
+        child.on("close", (status) => resolve({ status, out }));
+      }),
+  );
+  const results = await Promise.all(runs);
+  for (const r of results) assert.equal(r.status, 0, r.out);
+  const plan = fs.readFileSync(planPath(cwd), "utf8");
+  for (const id of ["1.2", "2.1", "2.2"]) assert.match(plan, new RegExp(`^- \\[x\\] ${id} `, "m"));
+  assert.equal(fs.existsSync(path.join(cwd, "docs", "changes", ID, "plan.md.lock")), false);
+});
+
+test("done fails in one line when another run holds the lock", () => {
+  const cwd = copyFixture("pass");
+  const dir = path.join(cwd, "docs", "changes", ID);
+  fs.writeFileSync(path.join(dir, "plan.md.lock"), "");
+  const before = fs.readFileSync(path.join(dir, "plan.md"));
+  const result = run(cwd, "done", ID, "1.2");
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.match(
+    result.stderr,
+    /^docs\/changes\/add-login\/plan\.md\.lock: another done holds the lock/,
+  );
+  assert.equal(result.stderr.trim().split("\n").length, 1);
+  assert.deepEqual(fs.readFileSync(path.join(dir, "plan.md")), before);
+});
+
+/** Rewrites a fixture file of the copied change through `edit(lines)`. */
+function editChangeFile(cwd, file, edit) {
+  const target = path.join(cwd, "docs", "changes", ID, file);
+  const lines = fs.readFileSync(target, "utf8").split("\n");
+  fs.writeFileSync(target, edit(lines).join("\n"));
+}
+
+test("a fenced task-shaped line is not a task and does not glue onto the task above", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "plan.md", (lines) => {
+    lines.splice(5, 0, "  ```", "  - [ ] 9.9 Example — proof: X", "  ```");
+    return lines;
+  });
+  const rows = JSON.parse(run(cwd, "tasks", ID, "--json").stdout);
+  assert.equal(rows.length, 4);
+  assert.equal(rows[0].text, "Build the form");
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+});
+
+test("an unclosed fence blocks archive and tasks --next and changes nothing", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "plan.md", (lines) => {
+    lines.splice(5, 0, "```");
+    return lines;
+  });
+  const planFile = path.join(cwd, "docs", "changes", ID, "plan.md");
+  const before = fs.readFileSync(planFile, "utf8");
+  const refusals = [
+    run(cwd, "archive", ID, "--dry-run", "--date", "2026-01-01"),
+    run(cwd, "tasks", ID, "--next"),
+  ];
+  for (const result of refusals) {
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /^docs\/changes\/add-login\/plan\.md:6: code fence is not closed/);
+  }
+  assert.equal(fs.readFileSync(planFile, "utf8"), before);
+  assert.ok(!fs.existsSync(path.join(cwd, "docs", "changes", "archive", "2026-01-01-add-login")));
+});
+
+test("a fenced block in a scenario stays in the block and does not end the scenario", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "spec.md", (lines) => {
+    lines.splice(23, 0, "", "```sh", "# comment", "echo ok", "```");
+    return lines;
+  });
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  const row = JSON.parse(run(cwd, "criteria", ID, "1.2", "--json").stdout);
+  assert.equal(row.then, "an error is shown");
+  assert.ok(row.block.includes("# comment"));
+});
+
+test("a scenario name with a slash is a scenario proof, not a path", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "spec.md", (lines) =>
+    lines.map((l) =>
+      l === "#### Scenario: Bad password" ? "#### Scenario: GET /login renders" : l,
+    ),
+  );
+  editChangeFile(cwd, "plan.md", (lines) =>
+    lines.map((l) => l.replace("proof: Bad password", "proof: GET /login renders")),
+  );
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  assert.match(run(cwd, "criteria", ID, "1.2").stdout, /^#### Scenario: GET \/login renders/);
+});
+
+test("a nested repo with its own .git finds its own root, not the outer one", () => {
+  const outer = freshDir();
+  assert.equal(run(outer, "init").status, 0);
+  const inner = path.join(outer, "pkg");
+  fs.mkdirSync(inner);
+  fs.writeFileSync(path.join(inner, ".git"), "");
+  const list = run(inner, "list");
+  assert.equal(list.status, 1);
+  assert.match(list.stderr, /docs\/changes: not found in .* or above — run onlyplans init/);
+  assert.equal(run(inner, "init").status, 0);
+  assert.ok(fs.existsSync(path.join(inner, "docs", "changes", "archive")));
+});
+
+test("a mis-cased id is no such change", () => {
+  const result = run(copyFixture("pass"), "tasks", "ADD-LOGIN");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /^docs\/changes\/ADD-LOGIN: no such change/);
+});

@@ -150,3 +150,102 @@ test("validate --json combines with --strict", () => {
   assert.equal(strict.length, 1);
   assert.ok(strict[0].file.endsWith("/spec.md"));
 });
+
+for (const [label, line] of [
+  ["an indented task line", "  - [ ] 1.2.1 Nested — proof: Bad password"],
+  ["a star bullet task line", "* [ ] 1.3 Starred — proof: Bad password"],
+]) {
+  test(`validate reports ${label} as malformed instead of skipping it`, () => {
+    const cwd = copyFixture("pass");
+    const plan = path.join(cwd, CHANGE, "plan.md");
+    const lines = fs.readFileSync(plan, "utf8").split("\n");
+    lines.splice(6, 0, line);
+    fs.writeFileSync(plan, lines.join("\n"));
+    const result = run(cwd, "validate", ID);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(
+      result.stdout,
+      /^docs\/changes\/add-login\/plan\.md:7: task line does not match the grammar/,
+    );
+  });
+}
+
+test("a real task line is unaffected by the task-like candidate test", () => {
+  const rows = JSON.parse(run(copyFixture("pass"), "tasks", ID, "--json").stdout);
+  assert.equal(rows.length, 4);
+});
+
+test("a leading byte order mark does not hide the title", () => {
+  const cwd = copyFixture("pass");
+  for (const file of ["spec.md", "plan.md"]) {
+    const target = path.join(cwd, CHANGE, file);
+    const bom = Buffer.from([0xef, 0xbb, 0xbf]);
+    fs.writeFileSync(target, Buffer.concat([bom, fs.readFileSync(target)]));
+  }
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  assert.match(run(cwd, "criteria", ID, "1.1").stdout, /^#### Scenario:/);
+});
+
+function editChangeFile(cwd, file, edit) {
+  const target = path.join(cwd, CHANGE, file);
+  const lines = fs.readFileSync(target, "utf8").split("\n");
+  fs.writeFileSync(target, edit(lines).join("\n"));
+}
+
+test("a fenced heading in the spec is not a section", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "spec.md", (lines) => {
+    lines.splice(4, 1, "```", "## Requirements", "```");
+    return lines;
+  });
+  assert.equal(run(cwd, "validate", ID).stdout, "PASS\n");
+});
+
+test("an unclosed fence is reported at its opener", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "plan.md", (lines) => {
+    lines.splice(5, 0, "```");
+    return lines;
+  });
+  const result = run(cwd, "validate", ID);
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stdout,
+    /^docs\/changes\/add-login\/plan\.md:6: code fence is not closed — add a closing ``` line/,
+  );
+});
+
+test("a proof with an empty path is a finding at the task line", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "plan.md", (lines) =>
+    lines.map((l) => l.replace("test/login.test.js::rejects", "::rejects")),
+  );
+  const result = run(cwd, "validate", ID);
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stdout,
+    /^docs\/changes\/add-login\/plan\.md:8: proof "::rejects" names no path — write <path>::rejects/,
+  );
+});
+
+test("an empty step is a strict finding, and a wrapped line fills it", () => {
+  const cwd = copyFixture("pass");
+  const emptyWhen = (extra) => (lines) =>
+    lines.flatMap((l) =>
+      l === "- WHEN they submit a wrong password" ? ["- WHEN", ...extra] : [l],
+    );
+  editChangeFile(cwd, "spec.md", emptyWhen([]));
+  assert.equal(run(cwd, "validate", ID).stdout, "PASS\n");
+  const strict = run(cwd, "validate", ID, "--strict");
+  assert.equal(strict.status, 1);
+  assert.match(
+    strict.stdout,
+    /^docs\/changes\/add-login\/spec\.md:19: scenario "Bad password" has an empty WHEN — write the text after the keyword/,
+  );
+
+  const wrapped = copyFixture("pass");
+  editChangeFile(wrapped, "spec.md", emptyWhen(["  they submit a wrong password"]));
+  assert.equal(run(wrapped, "validate", ID, "--strict").stdout, "PASS\n");
+  const row = JSON.parse(run(wrapped, "criteria", ID, "1.2", "--json").stdout);
+  assert.equal(row.when, "they submit a wrong password");
+});
