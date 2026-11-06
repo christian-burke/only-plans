@@ -7,6 +7,11 @@
   field on a wrapped line counts. `tasks` text prints every line of a task; `line` stays the first.
 - `validate` no longer requires a path proof to exist. The task that owns the proof often creates
   the file, and running the proof is the real check.
+- Indented or non-dash task lines under `## Tasks` are reported as malformed, not skipped.
+- Filesystem errors, such as a read-only `plan.md`, print one line instead of a stack trace.
+- A leading byte order mark is ignored when parsing, so such a file validates.
+- `archive --date` must be a real calendar date.
+- The `AGENTS.md` section now points at `tasks --next` and says `[X]` counts as done.
 
 ## 0.2.1
 
@@ -27,11 +32,6 @@
 - `archive --dry-run` prints `would move <from> to <to>`, runs every check, and moves nothing.
 - The `--help` columns were re-aligned and the archive synopsis now reads `[--date D]`; the date
   format is unchanged.
-- Indented or non-dash task lines under `## Tasks` are reported as malformed, not skipped.
-- Filesystem errors, such as a read-only `plan.md`, print one line instead of a stack trace.
-- A leading byte order mark is ignored when parsing, so such a file validates.
-- `archive --date` must be a real calendar date.
-- The `AGENTS.md` section now points at `tasks --next` and says `[X]` counts as done.
 
 ## 0.2.0
 
