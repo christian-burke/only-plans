@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.2
 
 - A task may wrap onto the lines below it. The lines directly under a task that do not start a
   list item or a heading are part of it, indented or not, as Markdown reads them, so a proof or a
@@ -12,6 +12,16 @@
 - A leading byte order mark is ignored when parsing, so such a file validates.
 - `archive --date` must be a real calendar date.
 - The `AGENTS.md` section now points at `tasks --next` and says `[X]` counts as done.
+- `done` holds `plan.md.lock` while it rewrites `plan.md` through a renamed temp file, and fails
+  in one line after two seconds if another run holds the lock.
+- Fenced code blocks are opaque to both parsers, and a fence ends a wrapped task or step. An
+  unclosed fence is a finding.
+- A proof that equals a scenario name is that scenario before `/` or `::` makes it a path. A
+  `::name` proof with no path, and under `--strict` an empty GIVEN, WHEN, or THEN, are findings.
+- A change id must match its folder name exactly. A symlinked change folder is no longer
+  accepted as an id.
+- Behaviour change: root discovery stops at the first directory holding a `.git` entry, so a
+  nested repo no longer uses its parent's `docs/changes/`.
 
 ## 0.2.1
 

@@ -756,6 +756,7 @@ test("the AGENTS.md section describes --next, [X], and what archive checks", () 
   assert.match(text, /tasks <id> --next/);
   assert.match(text, /\[X\]/);
   assert.match(text, /ignores the Close-Out box/);
+  assert.match(text, /equals a scenario name is that scenario/);
 });
 
 test("parallel done runs keep every check and leave no lock", async () => {

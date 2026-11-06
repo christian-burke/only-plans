@@ -56,9 +56,9 @@ more `#### Scenario:` blocks with GIVEN, WHEN, and THEN lines, in that order.
 
 `plan.md` holds `## Tasks`, `## Close-Out`, and `## Notes`. A task line is
 `- [ ] 1.1 <task> — proof: <Scenario name>`. The proof names a scenario in `spec.md` or a path
-from the repo root; a proof with `/` or `::` is a path and need not exist yet. Extra `key: value`
-fields are allowed and kept. A long task may wrap onto the lines below it. Ids ascend and may
-leave gaps: insert a task as `1.2.1` between `1.2` and `1.3`, never renumber. `[x]` or `[X]`
-counts as done.
+from the repo root: a proof that equals a scenario name is that scenario; otherwise a proof with
+`/` or `::` is a path and need not exist yet. Extra `key: value` fields are allowed and kept. A
+long task may wrap onto the lines below it. Ids ascend and may leave gaps: insert a task as
+`1.2.1` between `1.2` and `1.3`, never renumber. `[x]` or `[X]` counts as done.
 
 <!-- onlyplans:end -->
