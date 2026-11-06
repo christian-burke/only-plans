@@ -8,9 +8,9 @@
 - [x] 2.2 Skip fenced headings in parseSpec — proof: Fenced heading does not start a section
 - [x] 2.3 Keep fences in the block; fence ends a step — proof: Fenced comment stays in the scenario
 - [x] 2.4 Report a fence left open at end of file — proof: Unclosed fence is a finding
-- [ ] 3.1 Resolve a proof as a scenario first in parseProof — proof: Slash in a scenario name
-- [ ] 3.2 Report a proof with an empty path — proof: Empty path proof is a finding
-- [ ] 3.3 Report an empty step under --strict — proof: Empty step is a strict finding
+- [x] 3.1 Resolve a proof as a scenario first in parseProof — proof: Slash in a scenario name
+- [x] 3.2 Report a proof with an empty path — proof: Empty path proof is a finding
+- [x] 3.3 Report an empty step under --strict — proof: Empty step is a strict finding
 - [ ] 4.1 Stop locateRoot and init's check at a .git entry — proof: Nested repo finds its own root
 - [ ] 5.1 Require an exact folder name for an id — proof: Mis-cased id is no such change
 - [ ] 6.1 Put the proof rule in the template; rerun init — proof: Template says what the tool does

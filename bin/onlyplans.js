@@ -6,7 +6,15 @@ const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { SPEC, PLAN, readLines, parsePlan, parseProof, scenariosOf } = require("../lib/parse");
+const {
+  SPEC,
+  PLAN,
+  readLines,
+  parsePlan,
+  parseProof,
+  scenariosOf,
+  scenarioNames,
+} = require("../lib/parse");
 const {
   CHANGES_DIR,
   ARCHIVE_DIR,
@@ -28,7 +36,7 @@ const {
   findingRow,
   renderFinding,
 } = require("../lib/repo");
-const { validateChange, missingScenarioFinding } = require("../lib/validate");
+const { validateChange, missingScenarioFinding, emptyPathFinding } = require("../lib/validate");
 const {
   COMPLETE,
   completion,
@@ -234,12 +242,15 @@ function criteria(ctx) {
         ' — append " — proof: <Scenario name>"',
     );
   }
-  const proof = parseProof(task.fields.proof);
+  const spec = readSpec(change);
+  const proof = parseProof(task.fields.proof, scenarioNames(spec));
   if (proof.kind === "path") {
+    if (proof.target === "")
+      throw new CliError(renderFinding(change, emptyPathFinding(task, proof)));
     if (!ctx.flags.json) return print(proof.raw);
     return printJson({ kind: "path", path: proof.target, raw: proof.raw });
   }
-  const scenario = scenariosOf(readSpec(change)).find((s) => s.name === proof.target);
+  const scenario = scenariosOf(spec).find((s) => s.name === proof.target);
   if (!scenario) throw new CliError(renderFinding(change, missingScenarioFinding(task, proof)));
   const block = scenario.block.join("\n");
   if (!ctx.flags.json) return print(block);

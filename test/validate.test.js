@@ -214,3 +214,38 @@ test("an unclosed fence is reported at its opener", () => {
     /^docs\/changes\/add-login\/plan\.md:6: code fence is not closed — add a closing ``` line/,
   );
 });
+
+test("a proof with an empty path is a finding at the task line", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "plan.md", (lines) =>
+    lines.map((l) => l.replace("test/login.test.js::rejects", "::rejects")),
+  );
+  const result = run(cwd, "validate", ID);
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stdout,
+    /^docs\/changes\/add-login\/plan\.md:8: proof "::rejects" names no path — write <path>::rejects/,
+  );
+});
+
+test("an empty step is a strict finding, and a wrapped line fills it", () => {
+  const cwd = copyFixture("pass");
+  const emptyWhen = (extra) => (lines) =>
+    lines.flatMap((l) =>
+      l === "- WHEN they submit a wrong password" ? ["- WHEN", ...extra] : [l],
+    );
+  editChangeFile(cwd, "spec.md", emptyWhen([]));
+  assert.equal(run(cwd, "validate", ID).stdout, "PASS\n");
+  const strict = run(cwd, "validate", ID, "--strict");
+  assert.equal(strict.status, 1);
+  assert.match(
+    strict.stdout,
+    /^docs\/changes\/add-login\/spec\.md:19: scenario "Bad password" has an empty WHEN — write the text after the keyword/,
+  );
+
+  const wrapped = copyFixture("pass");
+  editChangeFile(wrapped, "spec.md", emptyWhen(["  they submit a wrong password"]));
+  assert.equal(run(wrapped, "validate", ID, "--strict").stdout, "PASS\n");
+  const row = JSON.parse(run(wrapped, "criteria", ID, "1.2", "--json").stdout);
+  assert.equal(row.when, "they submit a wrong password");
+});

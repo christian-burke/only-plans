@@ -823,3 +823,17 @@ test("a fenced block in a scenario stays in the block and does not end the scena
   assert.equal(row.then, "an error is shown");
   assert.ok(row.block.includes("# comment"));
 });
+
+test("a scenario name with a slash is a scenario proof, not a path", () => {
+  const cwd = copyFixture("pass");
+  editChangeFile(cwd, "spec.md", (lines) =>
+    lines.map((l) =>
+      l === "#### Scenario: Bad password" ? "#### Scenario: GET /login renders" : l,
+    ),
+  );
+  editChangeFile(cwd, "plan.md", (lines) =>
+    lines.map((l) => l.replace("proof: Bad password", "proof: GET /login renders")),
+  );
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  assert.match(run(cwd, "criteria", ID, "1.2").stdout, /^#### Scenario: GET \/login renders/);
+});
