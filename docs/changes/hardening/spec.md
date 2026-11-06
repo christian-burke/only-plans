@@ -35,10 +35,11 @@ if no other `done` is running.
 
 Both parsers SHALL treat a fence, a line of up to three spaces then three or more backticks or
 tildes, and every line up to its closer, the same character at least as many times with only
-spaces after, as opaque. No section, heading, task, continuation, requirement, scenario, or step
+whitespace after, as opaque. No section, heading, task, continuation, requirement, scenario, or step
 SHALL be read from those lines, and a fence SHALL end a wrapped task or step. Fenced lines inside
-a scenario SHALL stay in its block. A fence left open at the end of a file SHALL be a finding.
-The `--strict` line rules SHALL still apply to fenced lines.
+a scenario SHALL stay in its block. A fence left open at the end of a file SHALL be a finding,
+and `archive` and `tasks --next` SHALL refuse with that finding rather than act on a plan whose
+tasks it may hide. The `--strict` line rules SHALL still apply to fenced lines.
 
 #### Scenario: Fenced task line is not a task
 
@@ -65,6 +66,12 @@ The `--strict` line rules SHALL still apply to fenced lines.
 - GIVEN a plan whose `## Tasks` opens a fence after its first task and never closes it
 - WHEN `validate <id>` runs
 - THEN it reports the fence's line as unclosed and exits 1
+
+#### Scenario: Unclosed fence blocks archive and next
+
+- GIVEN a plan with a checked task, then an unclosed fence, then an unchecked task
+- WHEN `archive <id> --dry-run` and `tasks <id> --next` run
+- THEN both exit 1 with the unclosed-fence finding on stderr, and nothing on disk changes
 
 ### Requirement: Proofs resolve as a reader would expect
 
