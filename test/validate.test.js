@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { test } = require("node:test");
-const { ID, copyFixture, run } = require("./helpers");
+const { ID, copyFixture, run, escape } = require("./helpers");
 
 const CHANGE = `docs/changes/${ID}`;
 
@@ -37,7 +37,6 @@ const FAILURES = [
   ["task-no-proof", "plan.md:6: task 1.2 has no proof"],
   ["proof-scenario-missing", 'plan.md:6: no scenario named "Wrong password"'],
   ["proof-root-file", 'plan.md:6: no scenario named "Makefile"; for a root file write ./Makefile'],
-  ["proof-path-missing", 'plan.md:8: path "test/missing.test.js" does not exist'],
   ["duplicate-task-id", "plan.md:7: duplicate task id 1.2"],
   ["task-order", "plan.md:7: task id 1.0 does not ascend from 1.2"],
 ];
@@ -50,6 +49,18 @@ for (const [fixture, expected] of FAILURES) {
     assert.doesNotMatch(result.stdout, /^PASS$/m);
   });
 }
+
+test("a path proof passes before the file it names exists", () => {
+  const cwd = copyFixture("proof-path-missing");
+  for (const args of [
+    ["validate", ID],
+    ["validate", ID, "--strict"],
+  ]) {
+    const result = run(cwd, ...args);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(result.stdout, "PASS\n");
+  }
+});
 
 test("a change saved with CRLF line endings parses like one saved with LF", () => {
   const cwd = copyFixture("pass");
@@ -86,10 +97,6 @@ test("every finding is one line in file:line: what — fix form", () => {
     assert.match(line, /^docs\/changes\/add-login\/(spec|plan)\.md:\d+: .+ — .+$/);
   }
 });
-
-function escape(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 test("an orphaned scenario is one finding, not also a requirement finding", () => {
   const result = run(copyFixture("strict-orphan-scenario"), "validate", ID, "--strict");

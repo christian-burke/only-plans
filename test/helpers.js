@@ -28,8 +28,13 @@ function run(cwd, ...args) {
   return runIn({ cwd }, ...args);
 }
 
+/** Escapes `text` for use inside a RegExp source. */
+function escape(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function fixtureFile(name, file) {
   return fs.readFileSync(path.join(FIXTURES, name, "docs", "changes", ID, file), "utf8");
 }
 
-module.exports = { BIN, ID, copyFixture, run, runIn, fixtureFile };
+module.exports = { BIN, ID, copyFixture, run, runIn, fixtureFile, escape };
