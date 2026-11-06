@@ -2,18 +2,20 @@
 
 ## Tasks
 
-- [ ] 1.1 Write plan.md atomically, verify, and retry — proof: Parallel done runs keep every check
-- [ ] 2.1 Skip fenced lines in parsePlan — proof: Fenced task line is not a task
+- [ ] 1.1 Lock plan.md; write via a renamed temp file — proof: Parallel done runs keep every check
+- [ ] 1.2 Fail in one line when the lock is held — proof: Held lock is reported
+- [ ] 2.1 Skip fenced lines in parsePlan; fence ends a task — proof: Fenced task line is not a task
 - [ ] 2.2 Skip fenced headings in parseSpec — proof: Fenced heading does not start a section
-- [ ] 2.3 Keep fenced lines inside the scenario block — proof: Fenced comment stays in the scenario
-- [ ] 3.1 Resolve a proof as a scenario when the name matches — proof: Slash in a scenario name
+- [ ] 2.3 Keep fences in the block; fence ends a step — proof: Fenced comment stays in the scenario
+- [ ] 2.4 Report a fence left open at end of file — proof: Unclosed fence is a finding
+- [ ] 3.1 Resolve a proof as a scenario first in parseProof — proof: Slash in a scenario name
 - [ ] 3.2 Report a proof with an empty path — proof: Empty path proof is a finding
 - [ ] 3.3 Report an empty step under --strict — proof: Empty step is a strict finding
-- [ ] 4.1 Stop root discovery at a .git boundary — proof: Nested repo finds its own root
+- [ ] 4.1 Stop locateRoot and init's check at a .git entry — proof: Nested repo finds its own root
 - [ ] 5.1 Require an exact folder name for an id — proof: Mis-cased id is no such change
-- [ ] 6.1 Restore the template lines and pin them — proof: Template says what the tool does
-- [ ] 7.1 Document fences, proofs, and the root boundary in README — proof: ./README.md
-- [ ] 7.2 Bump to 0.2.2 and retitle Unreleased — proof: ./CHANGELOG.md
+- [ ] 6.1 Put the proof rule in the template; rerun init — proof: Template says what the tool does
+- [ ] 7.1 Document fences, proofs, the lock, exact ids, .git — proof: ./README.md
+- [ ] 7.2 Changelog with the root boundary flagged; bump to 0.2.2 — proof: ./CHANGELOG.md
 
 ## Close-Out
 
@@ -22,6 +24,8 @@
 ## Notes
 
 From the 0.2.1 pre-release review, minus what PR #13 made moot: a path proof no longer has to
-exist, so directories as proofs are no longer a question. Still deferred to later changes: the
-`setup` shell-profile fixes (0.2.3) and the structure and test cleanup. Root discovery looks
-for a `.git` entry by name only; the tool keeps its promise never to read or write git state.
+exist, so directories as proofs are no longer a question. The lock stays inside the change
+folder, so the README's write promise holds. The rename replaces a symlinked `plan.md` with a
+regular file; on Windows a rename over a file another process holds open may need a brief retry.
+Root discovery tests only that a `.git` entry exists and never reads it. Still deferred: the
+`setup` shell-profile fixes (0.2.3) and the structure and test cleanup.
