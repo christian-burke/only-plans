@@ -5,7 +5,7 @@ const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const { test } = require("node:test");
-const { BIN, ID, copyFixture, run, fixtureFile } = require("./helpers");
+const { BIN, ID, copyFixture, run, fixtureFile, escape } = require("./helpers");
 
 const AGENTS_MARKERS = ["<!-- onlyplans:start -->", "<!-- onlyplans:end -->"];
 
@@ -654,10 +654,68 @@ test("--help lists --next on tasks and --dry-run on archive", () => {
   assert.match(out, /^  archive <id> \[--date D\] \[--force\] \[--dry-run\] +move a finished/m);
 });
 
-test("the changelog's first entry is the package version", () => {
+test("the changelog's first entry is Unreleased or the package version", () => {
   const root = path.join(__dirname, "..");
   const { version } = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
   const first = changelog.match(/^## (.+)$/m);
-  assert.equal(first && first[1], version);
+  assert.ok(first && ["Unreleased", version].includes(first[1]), first && first[1]);
+});
+
+test("a task wraps onto indented lines and a proof on the continuation counts", () => {
+  const cwd = copyFixture("task-wrapped");
+  assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
+  const rows = JSON.parse(run(cwd, "tasks", ID, "--json").stdout);
+  assert.equal(
+    rows[0].text,
+    "Build the form with email and password fields and a submit button that posts to the " +
+      "session endpoint",
+  );
+  assert.deepEqual(rows[0].fields, { proof: "Form renders" });
+  assert.equal(rows[1].id, "1.2");
+});
+
+test("a field on a continuation line is kept", () => {
+  const rows = JSON.parse(run(copyFixture("task-wrapped"), "tasks", ID, "--json").stdout);
+  assert.deepEqual(rows[1].fields, { proof: "Bad password", kind: "api" });
+});
+
+test("done on a wrapped task checks its first line and tasks prints both lines", () => {
+  const cwd = copyFixture("task-wrapped");
+  const before = fs.readFileSync(planPath(cwd), "utf8");
+  const result = run(cwd, "done", ID, "1.1");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, `checked 1.1 at docs/changes/${ID}/plan.md:5\n`);
+  const after = fs.readFileSync(planPath(cwd), "utf8");
+  assert.equal(after, before.replace("- [ ] 1.1", "- [x] 1.1"));
+  const lines = after.split("\n");
+  assert.match(
+    run(cwd, "tasks", ID).stdout,
+    new RegExp(`^${escape(lines[4])}\n${escape(lines[5])}$`, "m"),
+  );
+});
+
+test("criteria resolves a proof on a continuation line", () => {
+  const spec = fixtureFile("task-wrapped", "spec.md");
+  const start = spec.indexOf("#### Scenario: Form renders");
+  const end = spec.indexOf("\n\n#### Scenario: Bad password");
+  assert.equal(
+    run(copyFixture("task-wrapped"), "criteria", ID, "1.1").stdout,
+    `${spec.slice(start, end)}\n`,
+  );
+});
+
+test("unindented prose directly under a task continues it, as Markdown reads it", () => {
+  const cwd = copyFixture("pass");
+  const plan = fs.readFileSync(planPath(cwd), "utf8");
+  fs.writeFileSync(
+    planPath(cwd),
+    plan.replace(
+      "- [ ] 1.2 Reject bad passwords — proof: Bad password\n",
+      "- [ ] 1.2 Reject bad passwords\n— proof: Bad password\n",
+    ),
+  );
+  const rows = JSON.parse(run(cwd, "tasks", ID, "--json").stdout);
+  assert.equal(rows[1].text, "Reject bad passwords");
+  assert.deepEqual(rows[1].fields, { proof: "Bad password" });
 });

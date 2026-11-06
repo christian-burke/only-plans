@@ -13,12 +13,12 @@ trailing field vanishes with `PASS` still printed.
 
 ### Requirement: Tasks may wrap
 
-A task line SHALL continue onto the lines directly below it that start with two or more spaces.
-The tool SHALL trim each continuation and join it to the task with one space before the text is
-split into fields, so a field or a proof on a continuation line counts. A task's `line` SHALL
-stay the first physical line, and `tasks` text output SHALL print the physical lines as they are
-in the file. A line that starts with `- [` SHALL always begin a new task, and a line with no
-indentation SHALL not be a continuation.
+A task line SHALL continue onto the non-blank lines directly below it that do not start a list
+item or a heading, indented or not, as Markdown reads them. The tool SHALL trim each continuation
+and join it to the task with one space before the text is split into fields, so a field or a proof
+on a continuation line counts. A task's `line` SHALL stay the first physical line, and `tasks`
+text output SHALL print the physical lines as they are in the file. A line that starts with `- [`
+SHALL always begin a new task.
 
 #### Scenario: Proof on a continuation line
 
@@ -48,11 +48,12 @@ indentation SHALL not be a continuation.
 - WHEN `criteria <id> <task>` runs
 - THEN it prints the named scenario's block
 
-#### Scenario: Unindented line is not a continuation
+#### Scenario: Unindented prose continues the task
 
-- GIVEN a task followed by an unindented line of prose that is not a task
+- GIVEN a task followed directly by an unindented line of prose, which a Markdown formatter
+  would indent under the task
 - WHEN `tasks <id> --json` runs
-- THEN the task's `text` and `fields` exclude the prose, as they do today
+- THEN the prose is joined onto the task's `text`
 
 ### Requirement: A path proof need not exist yet
 

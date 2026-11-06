@@ -81,10 +81,14 @@ one or more `#### Scenario:` blocks with GIVEN, WHEN, and THEN lines, in that or
 
 A checkbox, an id, the task text, then `key: value` fields, each introduced by `—`. A `—`
 that is not followed by `key:` is part of the task text. `proof` is required and names a
-scenario in `spec.md`, or a path from the repo root. A proof with `/` or `::` is a path.
-Other fields are kept and ignored. Ids ascend by their numeric parts and may leave gaps, so a
-task inserted as `1.2.1` sits between `1.2` and `1.3` and nothing is renumbered. Only `[x]`
-counts as done.
+scenario in `spec.md`, or a path from the repo root. A proof with `/` or `::` is a path; the
+path need not exist yet, since the task often creates it. Other fields are kept and ignored. Ids
+ascend by their numeric parts and may leave gaps, so a task inserted as `1.2.1` sits between
+`1.2` and `1.3` and nothing is renumbered. Only `[x]` counts as done.
+A task may wrap. The non-blank lines directly below it that do not start a list item or a
+heading belong to it, indented or not, the way Markdown reads them. The tool joins them with
+single spaces before it reads the fields, so a proof on a wrapped line counts, and the task's
+`line` is its first line.
 `###` headings under `## Tasks` are allowed and reported as `section`; the tool attaches no
 meaning to their text.
 
@@ -99,7 +103,7 @@ meaning to their text.
 - `onlyplans new <id>`: creates the change from the templates. Refuses a used id.
 - `onlyplans list [--json]`: active changes with task counts. JSON rows are
   `{id, total, done, path}`, in that order.
-- `onlyplans tasks <id> [--json] [--next]`: the parsed task lines. JSON rows carry `id`, `text`,
+- `onlyplans tasks <id> [--json] [--next]`: the tasks, as written. JSON rows carry `id`, `text`,
   `done`, `fields`, `line`, `section`, and `section_line`; `section` is the nearest `###` heading
   under `## Tasks`, or `null` without one. `--next` prints only the first unchecked task, or
   `all tasks checked`; with `--json` it prints that task's row, or `null`. `--next` reports

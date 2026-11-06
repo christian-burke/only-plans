@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- A task may wrap onto the lines below it. The lines directly under a task that do not start a
+  list item or a heading are part of it, indented or not, as Markdown reads them, so a proof or a
+  field on a wrapped line counts. `tasks` text prints every line of a task; `line` stays the first.
+- `validate` no longer requires a path proof to exist. The task that owns the proof often creates
+  the file, and running the proof is the real check.
+
 ## 0.2.1
 
 - `validate --strict` accepts a line of exactly 100 characters and reports only longer ones, so a
