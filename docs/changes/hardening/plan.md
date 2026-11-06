@@ -2,8 +2,8 @@
 
 ## Tasks
 
-- [ ] 1.1 Lock plan.md; write via a renamed temp file — proof: Parallel done runs keep every check
-- [ ] 1.2 Fail in one line when the lock is held — proof: Held lock is reported
+- [x] 1.1 Lock plan.md; write via a renamed temp file — proof: Parallel done runs keep every check
+- [x] 1.2 Fail in one line when the lock is held — proof: Held lock is reported
 - [ ] 2.1 Skip fenced lines in parsePlan; fence ends a task — proof: Fenced task line is not a task
 - [ ] 2.2 Skip fenced headings in parseSpec — proof: Fenced heading does not start a section
 - [ ] 2.3 Keep fences in the block; fence ends a step — proof: Fenced comment stays in the scenario

@@ -757,3 +757,38 @@ test("the AGENTS.md section describes --next, [X], and what archive checks", () 
   assert.match(text, /\[X\]/);
   assert.match(text, /ignores the Close-Out box/);
 });
+
+test("parallel done runs keep every check and leave no lock", async () => {
+  const { spawn } = require("node:child_process");
+  const cwd = copyFixture("pass");
+  const runs = ["1.2", "2.1", "2.2"].map(
+    (id) =>
+      new Promise((resolve) => {
+        const child = spawn(process.execPath, [BIN, "done", ID, id], { cwd });
+        let out = "";
+        child.stdout.on("data", (d) => (out += d));
+        child.on("close", (status) => resolve({ status, out }));
+      }),
+  );
+  const results = await Promise.all(runs);
+  for (const r of results) assert.equal(r.status, 0, r.out);
+  const plan = fs.readFileSync(planPath(cwd), "utf8");
+  for (const id of ["1.2", "2.1", "2.2"]) assert.match(plan, new RegExp(`^- \\[x\\] ${id} `, "m"));
+  assert.equal(fs.existsSync(path.join(cwd, "docs", "changes", ID, "plan.md.lock")), false);
+});
+
+test("done fails in one line when another run holds the lock", () => {
+  const cwd = copyFixture("pass");
+  const dir = path.join(cwd, "docs", "changes", ID);
+  fs.writeFileSync(path.join(dir, "plan.md.lock"), "");
+  const before = fs.readFileSync(path.join(dir, "plan.md"));
+  const result = run(cwd, "done", ID, "1.2");
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.match(
+    result.stderr,
+    /^docs\/changes\/add-login\/plan\.md\.lock: another done holds the lock/,
+  );
+  assert.equal(result.stderr.trim().split("\n").length, 1);
+  assert.deepEqual(fs.readFileSync(path.join(dir, "plan.md")), before);
+});

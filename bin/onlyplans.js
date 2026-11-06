@@ -260,6 +260,49 @@ function checkLine(text, lineNumber) {
   return lines.join("\n");
 }
 
+const LOCK_WAIT_MS = 2000;
+const RETRY_MS = 20;
+const RENAME_RETRIES = 5;
+
+/** @param {number} ms */
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * Takes the exclusive-create lock file, waiting briefly for another run to release it.
+ * @param {string} lock @param {string} shown the lock's name as printed in the error
+ */
+function acquireLock(lock, shown) {
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  for (;;) {
+    try {
+      return fs.openSync(lock, "wx");
+    } catch (error) {
+      if (/** @type {NodeJS.ErrnoException} */ (error).code !== "EEXIST") throw error;
+      if (Date.now() >= deadline) {
+        throw new CliError(
+          `${shown}: another done holds the lock — delete it if no other done is running`,
+        );
+      }
+      sleep(RETRY_MS);
+    }
+  }
+}
+
+/** Windows refuses a rename while a scanner or reader briefly holds the target. */
+function renameOver(/** @type {string} */ from, /** @type {string} */ to) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return fs.renameSync(from, to);
+    } catch (error) {
+      const code = /** @type {NodeJS.ErrnoException} */ (error).code;
+      if ((code !== "EPERM" && code !== "EBUSY") || attempt >= RENAME_RETRIES) throw error;
+      sleep(RETRY_MS);
+    }
+  }
+}
+
 /** @param {Ctx} ctx */
 function done(ctx) {
   const taskId = ctx.positional[1];
@@ -267,9 +310,23 @@ function done(ctx) {
   const task = requireTask(change, taskId);
   if (task.done) return print(`${taskId} already checked`);
   const file = path.join(change.dir, PLAN);
-  // latin1 maps every byte to one code unit and back, so nothing outside the one line changes.
-  fs.writeFileSync(file, checkLine(fs.readFileSync(file, "latin1"), task.line), "latin1");
-  print(`checked ${taskId} at ${relFile(change, PLAN)}:${task.line}`);
+  // A rename would replace a read-only plan, so refuse it up front as the in-place write did.
+  fs.accessSync(file, fs.constants.W_OK);
+  const lock = `${file}.lock`;
+  const tmp = path.join(change.dir, `${PLAN}.${process.pid}.tmp`);
+  const fd = acquireLock(lock, `${relFile(change, PLAN)}.lock`);
+  try {
+    const current = parsePlan(readLines(file)).tasks.find((t) => t.id === taskId);
+    if (!current || current.done) return print(`${taskId} already checked`);
+    // latin1 maps every byte to one code unit and back, so nothing outside the one line changes.
+    fs.writeFileSync(tmp, checkLine(fs.readFileSync(file, "latin1"), current.line), "latin1");
+    renameOver(tmp, file);
+    print(`checked ${taskId} at ${relFile(change, PLAN)}:${current.line}`);
+  } finally {
+    fs.closeSync(fd);
+    fs.rmSync(lock, { force: true });
+    fs.rmSync(tmp, { force: true });
+  }
 }
 
 /** @param {Ctx} ctx */
