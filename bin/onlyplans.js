@@ -25,6 +25,7 @@ const {
   relArchived,
   relFile,
   locateRoot,
+  hasGit,
   requireRoot,
   changesDir,
   archiveDir,
@@ -128,7 +129,7 @@ function isCalendarDate(/** @type {string} */ date) {
 /** @param {Ctx} ctx */
 function init(ctx) {
   const own = locateRoot(ctx.cwd) === ctx.cwd;
-  const above = own ? null : locateRoot(path.dirname(ctx.cwd));
+  const above = own || hasGit(ctx.cwd) ? null : locateRoot(path.dirname(ctx.cwd));
   if (above) {
     throw new CliError(
       `${changesDir(above)}: a root already exists above ${ctx.cwd}` +

@@ -837,3 +837,22 @@ test("a scenario name with a slash is a scenario proof, not a path", () => {
   assert.equal(run(cwd, "validate", ID, "--strict").stdout, "PASS\n");
   assert.match(run(cwd, "criteria", ID, "1.2").stdout, /^#### Scenario: GET \/login renders/);
 });
+
+test("a nested repo with its own .git finds its own root, not the outer one", () => {
+  const outer = freshDir();
+  assert.equal(run(outer, "init").status, 0);
+  const inner = path.join(outer, "pkg");
+  fs.mkdirSync(inner);
+  fs.writeFileSync(path.join(inner, ".git"), "");
+  const list = run(inner, "list");
+  assert.equal(list.status, 1);
+  assert.match(list.stderr, /docs\/changes: not found in .* or above — run onlyplans init/);
+  assert.equal(run(inner, "init").status, 0);
+  assert.ok(fs.existsSync(path.join(inner, "docs", "changes", "archive")));
+});
+
+test("a mis-cased id is no such change", () => {
+  const result = run(copyFixture("pass"), "tasks", "ADD-LOGIN");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /^docs\/changes\/ADD-LOGIN: no such change/);
+});

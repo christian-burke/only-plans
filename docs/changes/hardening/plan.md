@@ -11,8 +11,8 @@
 - [x] 3.1 Resolve a proof as a scenario first in parseProof — proof: Slash in a scenario name
 - [x] 3.2 Report a proof with an empty path — proof: Empty path proof is a finding
 - [x] 3.3 Report an empty step under --strict — proof: Empty step is a strict finding
-- [ ] 4.1 Stop locateRoot and init's check at a .git entry — proof: Nested repo finds its own root
-- [ ] 5.1 Require an exact folder name for an id — proof: Mis-cased id is no such change
+- [x] 4.1 Stop locateRoot and init's check at a .git entry — proof: Nested repo finds its own root
+- [x] 5.1 Require an exact folder name for an id — proof: Mis-cased id is no such change
 - [ ] 6.1 Put the proof rule in the template; rerun init — proof: Template says what the tool does
 - [ ] 7.1 Document fences, proofs, the lock, exact ids, .git — proof: ./README.md
 - [ ] 7.2 Changelog with the root boundary flagged; bump to 0.2.2 — proof: ./CHANGELOG.md
