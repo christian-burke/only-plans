@@ -13,11 +13,14 @@
 - `archive --date` must be a real calendar date.
 - The `AGENTS.md` section now points at `tasks --next` and says `[X]` counts as done.
 - `done` holds `plan.md.lock` while it rewrites `plan.md` through a renamed temp file, and fails
-  in one line after two seconds if another run holds the lock.
+  in one line after two seconds if another run holds the lock. The file mode is preserved.
 - Fenced code blocks are opaque to both parsers, and a fence ends a wrapped task or step. An
   unclosed fence is a finding.
 - A proof that equals a scenario name is that scenario before `/` or `::` makes it a path. A
   `::name` proof with no path, and under `--strict` an empty GIVEN, WHEN, or THEN, are findings.
+- `criteria` now reads `spec.md` for every proof, since a proof that equals a scenario name is
+  that scenario, so a path proof in a change with a broken spec fails where it used to print the
+  path.
 - A change id must match its folder name exactly. A symlinked change folder is no longer
   accepted as an id.
 - Behaviour change: root discovery stops at the first directory holding a `.git` entry, so a

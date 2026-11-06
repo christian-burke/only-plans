@@ -92,7 +92,8 @@ single spaces before it reads the fields, so a proof on a wrapped line counts, a
 `line` is its first line.
 Fenced code blocks, opened by three or more backticks or tildes after at most three spaces of
 indent, are opaque to the parser: nothing inside one counts as a task, a heading, or a scenario
-step. A fence must be closed, and one ends a wrapped task. A backtick fence whose info string
+step. A fence must be closed, by a line of the same character, at least as many of them, with
+nothing but whitespace after, and one ends a wrapped task. A backtick fence whose info string
 contains a backtick is not a fence.
 `###` headings under `## Tasks` are allowed and reported as `section`; the tool attaches no
 meaning to their text.
@@ -134,7 +135,7 @@ no GIVEN, WHEN, or THEN is empty.
 
 Exit 0 on success, 1 on a finding or refusal, 2 on bad usage. The tool never touches git.
 The tool looks for a `.git` entry only to stop the root search, and never reads it. A change id
-must match its folder name exactly.
+must match its folder name exactly, so a symlinked change folder is not accepted as an id.
 Outside `docs/changes/` it writes only the `AGENTS.md` section from `init` and the profile
 block from `setup`.
 

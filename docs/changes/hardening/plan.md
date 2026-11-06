@@ -27,6 +27,7 @@
 From the 0.2.1 pre-release review, minus what PR #13 made moot: a path proof no longer has to
 exist, so directories as proofs are no longer a question. The lock stays inside the change
 folder, so the README's write promise holds. The rename replaces a symlinked `plan.md` with a
-regular file; on Windows a rename over a file another process holds open may need a brief retry.
+regular file that keeps the original mode; on Windows a rename over a file another process holds
+open may need a brief retry.
 Root discovery tests only that a `.git` entry exists and never reads it. Still deferred: the
 `setup` shell-profile fixes (0.2.3) and the structure and test cleanup.
